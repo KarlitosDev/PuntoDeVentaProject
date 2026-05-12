@@ -7,7 +7,22 @@ services:
       SA_PASSWORD: "Tecnm123!"
       ACCEPT_EULA: "Y"
     volumes:
-      - ./PuntoDeVentaTBD.sql:/var/opt/mssql/temp/PuntoDeVentaTBD.sql   
+      - mssql-data:/var/opt/mssql
+      - ./PuntoDeVentaTBD.sql:/var/opt/mssql/temp/PuntoDeVentaTBD.sql
+      - ./init/entrypoint.sh:/var/opt/mssql/entrypoint.sh
     ports:
       - "1434:1433"
-    # command: /bin/bash -c "sleep 60 && /opt/mssql-tools18/bin/sqlcmd -S localhost -U SA -P 'Tecnm123!' -i /var/opt/mssql/temp/PuntoDeVentaTBD.sql -C"
+
+  backend:
+    build: ./backend
+    container_name: pos-backend
+    restart: always
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./backend/.env
+    depends_on:
+      - mssql
+
+volumes:
+  mssql-data:

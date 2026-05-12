@@ -1,13 +1,13 @@
-create database PuntoDeVenta;
-go
+If not exists (Select name from sys.databases where name = 'PuntoDeVenta')
+Begin
+    create database PuntoDeVenta;
+end
+Go
 
-use PuntoDeVenta;
-go
+Use PuntoDeVenta;
+Go
 
-/*
-	Tabla de Usuario
-	Guadar informacion y Roles de (Admin o Cliente)
-*/
+If not exists (Select * from sysobjects where name='Usuarios' and xtype='U')
 create table Usuarios (
 	IdUsuario int identity(1,1) primary key,
 	Username varchar(50) not null unique,
@@ -17,10 +17,7 @@ create table Usuarios (
 );
 go
 
-/*
-	Tabla de Productos
-	Guarda informacion de Productos y Stock
-*/
+If not exists (Select * from sysobjects where name='Productos' and xtype='U')
 create table Productos (
 	IdProducto int identity(1,1) primary key,
 	Nombre varchar(100) not null,
@@ -31,9 +28,7 @@ create table Productos (
 );
 go
 
-/*
-	Tabla Ventas
-*/
+If not exists (Select * from sysobjects where name='Ventas' and xtype='U')
 create table Ventas (
 	IdVenta int identity(1,1) primary key,
 	IdUsuario int not null,
@@ -43,9 +38,7 @@ create table Ventas (
 );
 go
 
-/*
-	Record de Transacioned de los ventas
-*/
+If not exists (Select * from sysobjects where name='DetallesVentas' and xtype='U')
 create table DetallesVentas (
 	IdDetalle int identity(1,1) primary key,
 	IdVenta int not null,
@@ -58,9 +51,7 @@ create table DetallesVentas (
 );
 go
 
-/*
- Las Tablas para los triggers
-*/
+if not exists (Select * from sysobjects where name='Auditoria_Productos' and xtype='U')
 create table Auditoria_Productos(
 	IdAuditoria int identity(1,1) primary key,
 	Operacion varchar(10) not null, --Insert, Update, Delete
@@ -76,6 +67,7 @@ create table Auditoria_Productos(
 );
 go
 
+if not exists (Select * from sysobjects where name='Auditoria_Ventas' and xtype='U')
 create table Auditoria_Ventas (
 	IdAuditoria int identity(1,1) Primary Key,
 	Operacion varchar(10) not null,
@@ -83,43 +75,52 @@ create table Auditoria_Ventas (
 	IdUsuario int,
 	Total decimal(10,2),
 	CambiadoPor varchar(100),
+	Cambiado datetime default getdate(),
 	Description varchar(255)
 );
 go
 
-ALTER TABLE Auditoria_Ventas
-ADD Cambiado datetime default getdate();
-
 -------------------------------------------------------------------
 -------------------------------------------------------------------
 /*Creacion de Usuarios y Roles*/
-create login AdminLogin with Password = 'Admin123!', Check_Policy = off;
+-- Logins
+If not exists (Select name from sys.server_principals where name = 'AdminLogin')
+	create login AdminLogin with Password = 'Admin123!', Check_Policy = off;
 go
 
+If not exists (Select name from sys.server_principals where name = 'ClienteLogin')
 create login ClienteLogin with Password = 'Cliente123!', Check_Policy = off;
 go
 
-create user AdminUser for Login AdminLogin;
+-- Users
+
+If not exists (Select name from sys.database_principals where name = 'AdminUser')
+	create user AdminUser for Login AdminLogin;
 go
 
-create user ClienteUser for Login ClienteLogin;
+If not exists (Select name from sys.database_principals where name = 'ClienteUser')
+	create user ClienteUser for Login ClienteLogin;
 go
 
-Alter Role db_datareader add member AdminUser;
-Alter Role db_datawriter add member AdminUser;
+--Permisos Admin
+If exists (Select * from sys.database_principals where name = 'db_datareader')	
+	Alter Role db_datareader add member AdminUser;
+GO
+If not exists (Select * from sys.database_principals where name = 'db_datawriter')	
+	Alter Role db_datawriter add member AdminUser;
 go
 
 Grant Execute To AdminUser;
 Grant Alter To AdminUser;
 go
 
-Alter Role db_datareader add member ClienteUser;
+-- Permisos Cliente
+If IS_ROLEMEMBER('db_datareader', 'ClienteUser') = 0
+	Alter Role db_datareader add member ClienteUser;
 go
 
 Grant Insert on Ventas to ClienteUser;
 Grant Insert on DetallesVentas to ClienteUser;
-go
-
 Grant Update on Productos to ClienteUser;
 go
 
@@ -128,6 +129,8 @@ go
 /*Triggers*/
 
 --1.
+Drop Trigger if exists trg_Productos_Insert;
+go
 create Trigger trg_Productos_Insert
 ON Productos after Insert
 AS
@@ -154,6 +157,8 @@ AS
 GO
 
 --2.
+Drop Trigger if exists trg_Productos_Update;
+go
 create Trigger trg_Productos_Update
 ON Productos after Update
 AS
@@ -187,6 +192,8 @@ AS
 GO
 
 --3.
+Drop Trigger if exists trg_Productos_Delete;
+go
 create Trigger trg_Productos_Delete
 ON Productos after Delete
 AS
@@ -215,6 +222,8 @@ AS
 GO
 
 --4.
+Drop Trigger if exists trg_Ventas_Insert;
+go
 create Trigger trg_Ventas_Insert
 ON Ventas after INSERT
 AS
@@ -239,6 +248,8 @@ AS
 GO
 
 --5.
+Drop Trigger if exists trg_DetallesVentas_Insert;
+go
 create Trigger trg_DetallesVentas_Insert
 ON DetallesVentas after INSERT
 AS
@@ -287,38 +298,4 @@ AS
 			Begin
 				Print 'No existe el producto con ID: ' + CONVERT(NVARCHAR(50), @idProducto)
 			end
-GO
-
------------------------------------------------------------------------------------------------------------
------------------------------------------------------------------------------------------------------------
-
--- Add a test user
-INSERT INTO Usuarios (Username, Password, Role)
-VALUES ('testadmin', '1234', 'Admin');
-GO
-
--- Add a test product with 10 stock
-INSERT INTO Productos (Nombre, Categoria, Precio, Stock)
-VALUES ('Coca Cola', 'Bebidas', 18.50, 10);
-GO
-
-SELECT * FROM Auditoria_Productos;
-
--- Simulate a sale
-INSERT INTO Ventas (IdUsuario, Total)
-VALUES (1, 37.00);
-GO
-
--- Add sale detail (this should trigger stock reduction)
-INSERT INTO DetallesVentas (IdVenta, IdProducto, Cantidad, PrecioUnidad)
-VALUES (1, 1, 2, 18.50);
-GO
-
--- Stock should now be 8
-SELECT * FROM Productos;
-
--- Should show the stock reduction record
-SELECT * FROM Auditoria_Productos;
-
--- Should show the sale record
-SELECT * FROM Auditoria_Ventas;
+Go
