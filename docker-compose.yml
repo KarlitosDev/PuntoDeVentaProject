@@ -9,9 +9,14 @@ services:
     volumes:
       - mssql-data:/var/opt/mssql
       - ./PuntoDeVentaTBD.sql:/var/opt/mssql/temp/PuntoDeVentaTBD.sql
-      - ./init/entrypoint.sh:/var/opt/mssql/entrypoint.sh
     ports:
       - "1434:1433"
+    command: >
+      /bin/bash -c "
+      /opt/mssql/bin/sqlservr &
+      sleep 60 &&
+      /opt/mssql-tools18/bin/sqlcmd -S localhost -U SA -P 'Tecnm123!' -No -I -i /var/opt/mssql/temp/PuntoDeVentaTBD.sql &&
+      wait"
 
   backend:
     build: ./backend

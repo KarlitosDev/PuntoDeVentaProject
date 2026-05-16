@@ -1,5 +1,4 @@
 #!/bin/bash
-
 echo "Esperando que SQL Server este listo..."
 
 until /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "Tecnm123!" -No -Q "SELECT 1" &> /dev/null
