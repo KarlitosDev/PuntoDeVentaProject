@@ -10,7 +10,7 @@ const obtenerVentas = async (req, res) => {
                 v.IdUsuario,
                 u.Username,
                 v.FechaVenta,
-                v.Total
+                v.TotalVenta
             FROM dbo.Ventas v
             INNER JOIN dbo.Usuarios u ON v.IdUsuario = u.IdUsuario
             ORDER BY v.IdVenta DESC
@@ -38,7 +38,7 @@ const obtenerVentaPorId = async (req, res) => {
                     v.IdUsuario,
                     u.Username,
                     v.FechaVenta,
-                    v.Total
+                    v.TotalVenta
                 FROM dbo.Ventas v
                 INNER JOIN dbo.Usuarios u ON v.IdUsuario = u.IdUsuario
                 WHERE v.IdVenta = @id
@@ -159,10 +159,10 @@ const crearVenta = async (req, res) => {
 
         const ventaResult = await ventaRequest
             .input('IdUsuario', sql.Int, IdUsuario)
-            .input('Total', sql.Decimal(10, 2), totalVenta)
+            .input('TotalVenta', sql.Decimal(10, 2), totalVenta)
             .query(`
-                INSERT INTO dbo.Ventas (IdUsuario, Total)
-                VALUES (@IdUsuario, @Total);
+                INSERT INTO dbo.Ventas (IdUsuario, TotalVenta)
+                VALUES (@IdUsuario, @TotalVenta);
 
                 SELECT SCOPE_IDENTITY() AS IdVenta;
             `);
@@ -190,7 +190,7 @@ const crearVenta = async (req, res) => {
             venta: {
                 IdVenta,
                 IdUsuario,
-                Total: totalVenta,
+                TotalVenta: totalVenta,
                 productos: productosVenta
             }
         });

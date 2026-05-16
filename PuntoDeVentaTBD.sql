@@ -33,7 +33,7 @@ create table Ventas (
 	IdVenta int identity(1,1) primary key,
 	IdUsuario int not null,
 	FechaVenta datetime default getdate(),
-	Total decimal(10,2) not null,
+	TotalVenta decimal(10,2) not null,
 	Foreign Key (IdUsuario) References Usuarios(IdUsuario)
 );
 go
@@ -73,12 +73,28 @@ create table Auditoria_Ventas (
 	Operacion varchar(10) not null,
 	IdVenta int,
 	IdUsuario int,
-	Total decimal(10,2),
+	TotalVenta decimal(10,2),
 	CambiadoPor varchar(100),
 	Cambiado datetime default getdate(),
 	Description varchar(255)
 );
 go
+
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Auditoria_Usuarios' AND xtype='U')
+CREATE TABLE Auditoria_Usuarios (
+    IdAuditoria int identity(1,1) primary key,
+    Operacion varchar(10) not null,
+    IdUsuario int,
+    UsernameViejo varchar(50),
+    UsernameNuevo varchar(50),
+    RoleViejo varchar(10),
+    RoleNuevo varchar(10),
+    PasswordCambiado bit,
+    CambiadoPor varchar(100),
+    Cambiado datetime default getdate(),
+    Description varchar(255)
+);
+GO
 
 -------------------------------------------------------------------
 -------------------------------------------------------------------
@@ -227,20 +243,20 @@ go
 create Trigger trg_Ventas_Insert
 ON Ventas after INSERT
 AS
-	Declare @idVenta INT, @idUsuario INT, @total DECIMAL(10,2)
+	Declare @idVenta INT, @idUsuario INT, @totalVenta DECIMAL(10,2)
 
-	Select @idVenta = IdVenta, @idUsuario = IdUsuario, @total = Total
+	Select @idVenta = IdVenta, @idUsuario = IdUsuario, @totalVenta = TotalVenta
 	From inserted
 
 	Begin Transaction registraVenta
 		Set Transaction Isolation Level READ COMMITTED
 		INSERT into Auditoria_Ventas (
 			Operacion, IdVenta, IdUsuario,
-			Total, CambiadoPor, Description
+			TotalVenta, CambiadoPor, Description
 		)
 		Values (
 			'INSERT', @idVenta, @idUsuario,
-			@total, SYSTEM_USER,
+			@totalVenta, SYSTEM_USER,
 			'Venta realizada por usuario: ' + CAST(@idUsuario AS VARCHAR)
 		)
 		COMMIT TRANSACTION registraVenta
@@ -298,4 +314,146 @@ AS
 			Begin
 				Print 'No existe el producto con ID: ' + CONVERT(NVARCHAR(50), @idProducto)
 			end
+Go
+
+--6
+Drop Trigger If Exists trg_Usuarios_Insert;
+Go
+
+Create Trigger trg_Usuarios_Insert
+ON Usuarios after INSERT
+AS
+    Declare @idUsuario INT, @username VARCHAR(50), @role VARCHAR(10)
+
+    Select 
+        @idUsuario = IdUsuario,
+        @username = Username,
+        @role = Role
+    From inserted
+
+    Begin Transaction registraUsuarioInsert
+        SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+
+        INSERT into Auditoria_Usuarios (
+            Operacion,
+            IdUsuario,
+            UsernameNuevo,
+            RoleNuevo,
+            PasswordCambiado,
+            CambiadoPor,
+            Description
+        )
+        Values (
+            'INSERT',
+            @idUsuario,
+            @username,
+            @role,
+            1,
+            SYSTEM_USER,
+            'Usuario creado: ' + @username
+        )
+
+        COMMIT Transaction registraUsuarioInsert
+        Print 'Usuario registrado en auditoria: ' + @username
+GO
+
+--7
+Drop Trigger If Exists trg_Usuarios_Update;
+Go
+
+Create Trigger trg_Usuarios_Update
+ON Usuarios after UPDATE
+AS
+    Declare @idUsuario INT
+    Declare @usernameViejo VARCHAR(50), @usernameNuevo VARCHAR(50)
+    Declare @roleViejo VARCHAR(10), @roleNuevo VARCHAR(10)
+    Declare @passwordViejo VARCHAR(255), @passwordNuevo VARCHAR(255)
+    Declare @passwordCambiado BIT
+
+    Select 
+        @idUsuario = i.IdUsuario,
+        @usernameViejo = d.Username,
+        @usernameNuevo = i.Username,
+        @roleViejo = d.Role,
+        @roleNuevo = i.Role,
+        @passwordViejo = d.Password,
+        @passwordNuevo = i.Password
+    From inserted i
+    INNER JOIN deleted d ON i.IdUsuario = d.IdUsuario
+
+    If (@passwordViejo <> @passwordNuevo)
+        SET @passwordCambiado = 1
+    Else
+        SET @passwordCambiado = 0
+
+    Begin Transaction registraUsuarioUpdate
+        SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+
+        INSERT into Auditoria_Usuarios (
+            Operacion,
+            IdUsuario,
+            UsernameViejo,
+            UsernameNuevo,
+            RoleViejo,
+            RoleNuevo,
+            PasswordCambiado,
+            CambiadoPor,
+            Description
+        )
+        Values (
+            'UPDATE',
+            @idUsuario,
+            @usernameViejo,
+            @usernameNuevo,
+            @roleViejo,
+            @roleNuevo,
+            @passwordCambiado,
+            SYSTEM_USER,
+            'Usuario actualizado: ' + @usernameNuevo
+        )
+
+        COMMIT Transaction registraUsuarioUpdate
+        Print 'Actualizacion de usuario registrada en auditoria: ' + @usernameNuevo
+Go
+
+
+--8
+Drop Trigger If Exists trg_Usuarios_Delete;
+Go
+
+Create Trigger trg_Usuarios_Delete
+ON Usuarios after DELETE
+AS
+    Declare @idUsuario INT, @username VARCHAR(50), @role VARCHAR(10)
+
+    Select 
+        @idUsuario = IdUsuario,
+        @username = Username,
+        @role = Role
+    From deleted
+
+    Begin Transaction registraUsuarioDelete
+        SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+
+        INSERT into Auditoria_Usuarios (
+            Operacion,
+            IdUsuario,
+            UsernameViejo,
+            RoleViejo,
+            PasswordCambiado,
+            CambiadoPor,
+            Description
+        )
+        Values (
+            'DELETE',
+            @idUsuario,
+            @username,
+            @role,
+            0,
+            SYSTEM_USER,
+            'Usuario eliminado: ' + @username
+        )
+
+        COMMIT Transaction registraUsuarioDelete
+        Print 'Eliminacion de usuario registrada en auditoria: ' + @username
 Go
