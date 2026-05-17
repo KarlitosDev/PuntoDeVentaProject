@@ -34,6 +34,9 @@ create table Ventas (
 	IdUsuario int not null,
 	FechaVenta datetime default getdate(),
 	TotalVenta decimal(10,2) not null,
+	FolioRecibo varchar(50) null,
+	EstadoPago varchar(20) not null default 'PAGADO',
+	MetodoPago varchar(20) not null default 'BILLETERA',
 	Foreign Key (IdUsuario) References Usuarios(IdUsuario)
 );
 go
@@ -76,6 +79,8 @@ create table Auditoria_Ventas (
 	TotalVenta decimal(10,2),
 	CambiadoPor varchar(100),
 	Cambiado datetime default getdate(),
+	FolioRecibo varchar(50) null,
+	MetodoPago varchar(20) null,
 	Description varchar(255)
 );
 go
@@ -93,6 +98,37 @@ CREATE TABLE Auditoria_Usuarios (
     CambiadoPor varchar(100),
     Cambiado datetime default getdate(),
     Description varchar(255)
+);
+GO
+
+-------------------------------------------------------------------
+-------------------------------------------------------------------
+/* Billeteras y Movimientos */
+
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Billeteras' AND xtype='U')
+CREATE TABLE Billeteras (
+    IdBilletera int identity(1,1) primary key,
+    IdUsuario int not null unique,
+    Saldo decimal(10,2) not null default 0,
+    Creado datetime default getdate(),
+    Foreign Key (IdUsuario) References Usuarios(IdUsuario)
+);
+GO
+
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Movimientos_Billetera' AND xtype='U')
+CREATE TABLE Movimientos_Billetera (
+    IdMovimiento int identity(1,1) primary key,
+    IdBilletera int not null,
+    TipoMovimiento varchar(20) not null Check (TipoMovimiento in ('RECARGA', 'COMPRA', 'AJUSTE')),
+    Monto decimal(10,2) not null,
+    SaldoAnterior decimal(10,2),
+    SaldoNuevo decimal(10,2),
+    IdVenta int null,
+    CambiadoPor varchar(100),
+    FechaMovimiento datetime default getdate(),
+    Description varchar(255),
+    Foreign Key (IdBilletera) References Billeteras(IdBilletera),
+    Foreign Key (IdVenta) References Ventas(IdVenta)
 );
 GO
 
@@ -236,36 +272,61 @@ AS
 		COMMIT TRANSACTION registraDelete
 		Print 'Eliminacion registrada en auditoria: ' + @nombre
 GO
-
+-----------------------------------------------------------------------------------
+-----------------------------------------------------------------------------------
+--Ventas triggers
 --4.
-Drop Trigger if exists trg_Ventas_Insert;
-go
-create Trigger trg_Ventas_Insert
-ON Ventas after INSERT
+DROP TRIGGER IF EXISTS trg_Ventas_Insert;
+GO
+
+CREATE TRIGGER trg_Ventas_Insert
+ON Ventas AFTER INSERT
 AS
-	Declare @idVenta INT, @idUsuario INT, @totalVenta DECIMAL(10,2)
+    DECLARE @idVenta INT, @idUsuario INT, @totalVenta DECIMAL(10,2)
+    DECLARE @folioRecibo VARCHAR(50), @metodoPago VARCHAR(20)
 
-	Select @idVenta = IdVenta, @idUsuario = IdUsuario, @totalVenta = TotalVenta
-	From inserted
+    SELECT 
+        @idVenta = IdVenta,
+        @idUsuario = IdUsuario,
+        @totalVenta = TotalVenta,
+        @folioRecibo = FolioRecibo,
+        @metodoPago = MetodoPago
+    FROM inserted
 
-	Begin Transaction registraVenta
-		Set Transaction Isolation Level READ COMMITTED
-		INSERT into Auditoria_Ventas (
-			Operacion, IdVenta, IdUsuario,
-			TotalVenta, CambiadoPor, Description
-		)
-		Values (
-			'INSERT', @idVenta, @idUsuario,
-			@totalVenta, SYSTEM_USER,
-			'Venta realizada por usuario: ' + CAST(@idUsuario AS VARCHAR)
-		)
-		COMMIT TRANSACTION registraVenta
-		Print 'Venta registrada en auditoria. IdVenta: ' + CAST(@idVenta AS VARCHAR)
+    BEGIN TRANSACTION registraVenta
+        SET TRANSACTION ISOLATION LEVEL READ COMMITTED
+
+        INSERT INTO Auditoria_Ventas (
+            Operacion,
+            IdVenta,
+            IdUsuario,
+            TotalVenta,
+            FolioRecibo,
+            MetodoPago,
+            CambiadoPor,
+            Description
+        )
+        VALUES (
+            'INSERT',
+            @idVenta,
+            @idUsuario,
+            @totalVenta,
+            @folioRecibo,
+            @metodoPago,
+            SYSTEM_USER,
+            'Venta realizada por usuario: ' + CAST(@idUsuario AS VARCHAR) + 
+            ' | Recibo: ' + ISNULL(@folioRecibo, 'SIN FOLIO')
+        )
+
+        COMMIT TRANSACTION registraVenta
+        PRINT 'Venta registrada en auditoria. IdVenta: ' + CAST(@idVenta AS VARCHAR)
 GO
 
 --5.
+--5.
 Drop Trigger if exists trg_DetallesVentas_Insert;
 go
+
 create Trigger trg_DetallesVentas_Insert
 ON DetallesVentas after INSERT
 AS
@@ -274,6 +335,7 @@ AS
 
 	Select @idProducto = IdProducto, @cantidad = Cantidad
 	From inserted
+
 	Begin Transaction disminuyeStock
 		Set Transaction Isolation Level SERIALIZABLE
 
@@ -313,9 +375,66 @@ AS
 		else
 			Begin
 				Print 'No existe el producto con ID: ' + CONVERT(NVARCHAR(50), @idProducto)
+				ROLLBACK TRANSACTION disminuyeStock
 			end
 Go
+------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------
+-- Billetera trigger
+DROP TRIGGER IF EXISTS trg_Movimientos_Billetera_Insert;
+GO
 
+CREATE TRIGGER trg_Movimientos_Billetera_Insert
+ON Movimientos_Billetera AFTER INSERT
+AS
+    DECLARE @idMovimiento INT, @idBilletera INT, @tipoMovimiento VARCHAR(20)
+    DECLARE @monto DECIMAL(10,2), @saldoAnterior DECIMAL(10,2), @saldoNuevo DECIMAL(10,2)
+
+    SELECT
+        @idMovimiento = IdMovimiento,
+        @idBilletera = IdBilletera,
+        @tipoMovimiento = TipoMovimiento,
+        @monto = Monto,
+        @saldoAnterior = SaldoAnterior,
+        @saldoNuevo = SaldoNuevo
+    FROM inserted
+
+    PRINT 'Movimiento de billetera registrado. ID: ' + CAST(@idMovimiento AS VARCHAR)
+GO
+
+------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------
+-- Proteccion: Solo Clientes pueden tener Billetera
+
+Drop Trigger If Exists trg_Billeteras_ValidarCliente;
+Go
+
+Create Trigger trg_Billeteras_ValidarCliente
+ON Billeteras after INSERT, UPDATE
+AS
+	Declare @idUsuario INT, @role VARCHAR(10)
+
+	Select @idUsuario = IdUsuario
+	From inserted
+
+	Select @role = Role
+	From Usuarios
+	Where IdUsuario = @idUsuario
+
+	If (@role <> 'Cliente')
+		Begin
+			Print 'Error: Solo los usuarios con rol Cliente pueden tener billetera.'
+			Rollback Transaction
+		end
+	Else
+		Begin
+			Print 'Billetera validada correctamente para Cliente.'
+		end
+Go
+
+------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------
+--Usuarios triggers
 --6
 Drop Trigger If Exists trg_Usuarios_Insert;
 Go
@@ -416,6 +535,34 @@ AS
         Print 'Actualizacion de usuario registrada en auditoria: ' + @usernameNuevo
 Go
 
+------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------
+-- Proteccion: No cambiar a Admin si el usuario tiene Billetera
+
+Drop Trigger If Exists trg_Usuarios_ValidarCambioRolBilletera;
+Go
+
+Create Trigger trg_Usuarios_ValidarCambioRolBilletera
+ON Usuarios after UPDATE
+AS
+	Declare @idUsuario INT, @roleViejo VARCHAR(10), @roleNuevo VARCHAR(10)
+
+	Select 
+		@idUsuario = i.IdUsuario,
+		@roleViejo = d.Role,
+		@roleNuevo = i.Role
+	From inserted i
+	Inner Join deleted d ON i.IdUsuario = d.IdUsuario
+
+	If (@roleViejo = 'Cliente' AND @roleNuevo = 'Admin')
+		Begin
+			If Exists (Select 1 From Billeteras Where IdUsuario = @idUsuario)
+				Begin
+					Print 'Error: No se puede cambiar este Cliente a Admin porque tiene una billetera asignada.'
+					Rollback Transaction
+				end
+		end
+Go
 
 --8
 Drop Trigger If Exists trg_Usuarios_Delete;

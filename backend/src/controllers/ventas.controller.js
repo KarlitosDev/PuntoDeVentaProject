@@ -10,7 +10,10 @@ const obtenerVentas = async (req, res) => {
                 v.IdUsuario,
                 u.Username,
                 v.FechaVenta,
-                v.TotalVenta
+                v.TotalVenta,
+                v.FolioRecibo,
+                v.EstadoPago,
+                v.MetodoPago
             FROM dbo.Ventas v
             INNER JOIN dbo.Usuarios u ON v.IdUsuario = u.IdUsuario
             ORDER BY v.IdVenta DESC
@@ -38,7 +41,10 @@ const obtenerVentaPorId = async (req, res) => {
                     v.IdUsuario,
                     u.Username,
                     v.FechaVenta,
-                    v.TotalVenta
+                    v.TotalVenta,
+                    v.FolioRecibo,
+                    v.EstadoPago,
+                    v.MetodoPago
                 FROM dbo.Ventas v
                 INNER JOIN dbo.Usuarios u ON v.IdUsuario = u.IdUsuario
                 WHERE v.IdVenta = @id
@@ -113,6 +119,14 @@ const crearVenta = async (req, res) => {
             });
         }
 
+        const usuario = usuarioResult.recordset[0];
+
+        if (usuario.Role !== 'Cliente') {
+            return res.status(400).json({
+                message: 'Solo los usuarios Cliente pueden realizar compras'
+            });
+        }
+
         let totalVenta = 0;
         const productosVenta = [];
 
@@ -148,10 +162,37 @@ const crearVenta = async (req, res) => {
                 IdProducto: producto.IdProducto,
                 Nombre: producto.Nombre,
                 Cantidad: item.Cantidad,
-                PrecioUnidad: producto.Precio,
+                PrecioUnidad: Number(producto.Precio),
                 Subtotal: subtotal
             });
         }
+
+        const billeteraResult = await pool.request()
+            .input('IdUsuario', sql.Int, IdUsuario)
+            .query(`
+                SELECT IdBilletera, IdUsuario, Saldo
+                FROM dbo.Billeteras
+                WHERE IdUsuario = @IdUsuario
+            `);
+
+        if (billeteraResult.recordset.length === 0) {
+            return res.status(404).json({
+                message: 'El cliente no tiene billetera registrada'
+            });
+        }
+
+        const billetera = billeteraResult.recordset[0];
+        const saldoAnterior = Number(billetera.Saldo);
+
+        if (saldoAnterior < totalVenta) {
+            return res.status(400).json({
+                message: 'Saldo insuficiente en la billetera',
+                saldoDisponible: saldoAnterior,
+                totalVenta
+            });
+        }
+
+        const saldoNuevo = saldoAnterior - totalVenta;
 
         await transaction.begin();
 
@@ -160,14 +201,39 @@ const crearVenta = async (req, res) => {
         const ventaResult = await ventaRequest
             .input('IdUsuario', sql.Int, IdUsuario)
             .input('TotalVenta', sql.Decimal(10, 2), totalVenta)
+            .input('EstadoPago', sql.VarChar(20), 'PAGADO')
+            .input('MetodoPago', sql.VarChar(20), 'BILLETERA')
             .query(`
-                INSERT INTO dbo.Ventas (IdUsuario, TotalVenta)
-                VALUES (@IdUsuario, @TotalVenta);
+                INSERT INTO dbo.Ventas (IdUsuario, TotalVenta, EstadoPago, MetodoPago)
+                VALUES (@IdUsuario, @TotalVenta, @EstadoPago, @MetodoPago);
 
                 SELECT SCOPE_IDENTITY() AS IdVenta;
             `);
 
-        const IdVenta = ventaResult.recordset[0].IdVenta;
+        const IdVenta = Number(ventaResult.recordset[0].IdVenta);
+        const FolioRecibo = `TEC-${String(IdVenta).padStart(6, '0')}`;
+
+        const folioRequest = new sql.Request(transaction);
+
+        await folioRequest
+            .input('IdVenta', sql.Int, IdVenta)
+            .input('FolioRecibo', sql.VarChar(50), FolioRecibo)
+            .query(`
+                UPDATE dbo.Ventas
+                SET FolioRecibo = @FolioRecibo
+                WHERE IdVenta = @IdVenta
+            `);
+        
+        const auditoriaFolioRequest = new sql.Request(transaction);
+
+        await auditoriaFolioRequest
+            .input('IdVenta', sql.Int, IdVenta)
+            .input('FolioRecibo', sql.VarChar(50), FolioRecibo)
+            .query(`
+                UPDATE dbo.Auditoria_Ventas
+                SET FolioRecibo = @FolioRecibo
+                WHERE IdVenta = @IdVenta
+            `);
 
         for (const item of productosVenta) {
             const detalleRequest = new sql.Request(transaction);
@@ -183,14 +249,64 @@ const crearVenta = async (req, res) => {
                 `);
         }
 
+        const actualizarBilleteraRequest = new sql.Request(transaction);
+
+        await actualizarBilleteraRequest
+            .input('IdBilletera', sql.Int, billetera.IdBilletera)
+            .input('SaldoNuevo', sql.Decimal(10, 2), saldoNuevo)
+            .query(`
+                UPDATE dbo.Billeteras
+                SET Saldo = @SaldoNuevo
+                WHERE IdBilletera = @IdBilletera
+            `);
+
+        const movimientoRequest = new sql.Request(transaction);
+
+        await movimientoRequest
+            .input('IdBilletera', sql.Int, billetera.IdBilletera)
+            .input('Monto', sql.Decimal(10, 2), totalVenta)
+            .input('SaldoAnterior', sql.Decimal(10, 2), saldoAnterior)
+            .input('SaldoNuevo', sql.Decimal(10, 2), saldoNuevo)
+            .input('IdVenta', sql.Int, IdVenta)
+            .input('CambiadoPor', sql.VarChar(100), usuario.Username)
+            .input('Description', sql.VarChar(255), `Compra realizada. Recibo: ${FolioRecibo}`)
+            .query(`
+                INSERT INTO dbo.Movimientos_Billetera (
+                    IdBilletera,
+                    TipoMovimiento,
+                    Monto,
+                    SaldoAnterior,
+                    SaldoNuevo,
+                    IdVenta,
+                    CambiadoPor,
+                    Description
+                )
+                VALUES (
+                    @IdBilletera,
+                    'COMPRA',
+                    @Monto,
+                    @SaldoAnterior,
+                    @SaldoNuevo,
+                    @IdVenta,
+                    @CambiadoPor,
+                    @Description
+                );
+            `);
+
         await transaction.commit();
 
         res.status(201).json({
             message: 'Venta creada correctamente',
-            venta: {
+            recibo: {
+                FolioRecibo,
                 IdVenta,
+                Cliente: usuario.Username,
                 IdUsuario,
+                MetodoPago: 'BILLETERA',
+                EstadoPago: 'PAGADO',
                 TotalVenta: totalVenta,
+                SaldoAnterior: saldoAnterior,
+                SaldoNuevo: saldoNuevo,
                 productos: productosVenta
             }
         });

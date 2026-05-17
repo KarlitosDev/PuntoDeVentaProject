@@ -6,6 +6,7 @@ const authRoutes = require('./routes/auth.routes');
 const productosRoutes = require('./routes/productos.routes');
 const ventasRoutes = require('./routes/ventas.routes');
 const auditoriaRoutes = require('./routes/auditoria.routes');
+const billeterasRoutes = require('./routes/billeteras.routes');
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/productos', productosRoutes);
 app.use('/api/ventas', ventasRoutes);
 app.use('/api/auditoria', auditoriaRoutes);
+app.use('/api/billeteras', billeterasRoutes);
 
 // Test route
 // app.get('/', (req, res) => {
