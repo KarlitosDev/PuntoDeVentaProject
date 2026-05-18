@@ -84,6 +84,38 @@ const obtenerVentaPorId = async (req, res) => {
     }
 };
 
+const obtenerVentasPorUsuario = async (req, res) => {
+    try {
+        const { idUsuario } = req.params;
+        const pool = getPool();
+
+        const result = await pool.request()
+            .input('IdUsuario', sql.Int, idUsuario)
+            .query(`
+                SELECT 
+                    v.IdVenta,
+                    v.IdUsuario,
+                    u.Username,
+                    v.FechaVenta,
+                    v.TotalVenta,
+                    v.FolioRecibo,
+                    v.EstadoPago,
+                    v.MetodoPago
+                FROM dbo.Ventas v
+                INNER JOIN dbo.Usuarios u ON v.IdUsuario = u.IdUsuario
+                WHERE v.IdUsuario = @IdUsuario
+                ORDER BY v.FechaVenta DESC
+            `);
+
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({
+            message: 'Error obteniendo ventas del usuario',
+            error: err.message
+        });
+    }
+};
+
 const crearVenta = async (req, res) => {
     const pool = getPool();
     const transaction = new sql.Transaction(pool);
@@ -327,5 +359,6 @@ const crearVenta = async (req, res) => {
 module.exports = {
     obtenerVentas,
     obtenerVentaPorId,
+    obtenerVentasPorUsuario,
     crearVenta
 };

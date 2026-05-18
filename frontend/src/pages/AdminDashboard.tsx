@@ -48,9 +48,24 @@ type Venta = {
   Username: string;
   FechaVenta: string;
   TotalVenta: number;
-  FolioRecibo: string;
+  FolioRecibo: string | null;
   EstadoPago: string;
   MetodoPago: string;
+};
+
+type DetalleVenta = {
+  IdDetalle: number;
+  IdVenta: number;
+  IdProducto: number;
+  Nombre: string;
+  Cantidad: number;
+  PrecioUnidad: number;
+  TotalParcial: number;
+};
+
+type VentaDetalleResponse = {
+  venta: Venta;
+  detalles: DetalleVenta[];
 };
 
 type AuditoriaProducto = {
@@ -109,6 +124,12 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   const [billeteras, setBilleteras] = useState<Billetera[]>([]);
   const [movimientos, setMovimientos] = useState<MovimientoBilletera[]>([]);
   const [ventas, setVentas] = useState<Venta[]>([]);
+  const [ventaSeleccionada, setVentaSeleccionada] = useState<VentaDetalleResponse | null>(null);
+  const [busquedaVentas, setBusquedaVentas] = useState('');
+  const [busquedaAuditoria, setBusquedaAuditoria] = useState('');
+  const [tipoAuditoria, setTipoAuditoria] = useState<'productos' | 'ventas' | 'usuarios'>('productos');
+  const [busquedaBilleteras, setBusquedaBilleteras] = useState('');
+  const [busquedaMovimientos, setBusquedaMovimientos] = useState('');
   const [auditoriaProductos, setAuditoriaProductos] = useState<AuditoriaProducto[]>([]);
   const [auditoriaVentas, setAuditoriaVentas] = useState<AuditoriaVenta[]>([]);
   const [auditoriaUsuarios, setAuditoriaUsuarios] = useState<AuditoriaUsuario[]>([]);
@@ -296,10 +317,114 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     }
   };
 
+  const verDetalleVenta = async (idVenta: number) => {
+    limpiarMensajes();
+
+    try {
+      const response = await api.get(`/ventas/${idVenta}`);
+      setVentaSeleccionada(response.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error cargando detalle de venta');
+    }
+  };
+
+  const cerrarDetalleVenta = () => {
+    setVentaSeleccionada(null);
+  };
+
   const totalVentas = ventas.reduce((sum, venta) => sum + Number(venta.TotalVenta), 0);
   const clientes = usuarios.filter((usuario) => usuario.Role === 'Cliente');
   const admins = usuarios.filter((usuario) => usuario.Role === 'Admin');
   const productosBajoStock = productos.filter((producto) => producto.Stock <= 5);
+
+  const ventasFiltradas = ventas.filter((venta) => {
+    const textoBusqueda = busquedaVentas.toLowerCase();
+
+    return (
+      String(venta.IdVenta).includes(textoBusqueda) ||
+      String(venta.FolioRecibo || '').toLowerCase().includes(textoBusqueda) ||
+      venta.Username.toLowerCase().includes(textoBusqueda) ||
+      venta.MetodoPago.toLowerCase().includes(textoBusqueda) ||
+      venta.EstadoPago.toLowerCase().includes(textoBusqueda) ||
+      new Date(venta.FechaVenta).toLocaleString().toLowerCase().includes(textoBusqueda)
+    );
+  });
+
+  const billeterasFiltradas = billeteras.filter((billetera) => {
+    const textoBusqueda = busquedaBilleteras.toLowerCase();
+
+    return (
+      String(billetera.IdBilletera).includes(textoBusqueda) ||
+      String(billetera.IdUsuario).includes(textoBusqueda) ||
+      billetera.Username.toLowerCase().includes(textoBusqueda) ||
+      billetera.Role.toLowerCase().includes(textoBusqueda) ||
+      String(billetera.Saldo).includes(textoBusqueda) ||
+      new Date(billetera.Creado).toLocaleString().toLowerCase().includes(textoBusqueda)
+    );
+  });
+
+  const movimientosFiltrados = movimientos.filter((movimiento) => {
+    const textoBusqueda = busquedaMovimientos.toLowerCase();
+
+    return (
+      String(movimiento.IdMovimiento).includes(textoBusqueda) ||
+      String(movimiento.IdBilletera).includes(textoBusqueda) ||
+      String(movimiento.IdUsuario).includes(textoBusqueda) ||
+      movimiento.Username.toLowerCase().includes(textoBusqueda) ||
+      movimiento.TipoMovimiento.toLowerCase().includes(textoBusqueda) ||
+      String(movimiento.Monto).includes(textoBusqueda) ||
+      String(movimiento.SaldoAnterior).includes(textoBusqueda) ||
+      String(movimiento.SaldoNuevo).includes(textoBusqueda) ||
+      String(movimiento.FolioRecibo || '').toLowerCase().includes(textoBusqueda) ||
+      String(movimiento.CambiadoPor || '').toLowerCase().includes(textoBusqueda) ||
+      String(movimiento.Description || '').toLowerCase().includes(textoBusqueda) ||
+      new Date(movimiento.FechaMovimiento).toLocaleString().toLowerCase().includes(textoBusqueda)
+    );
+  });
+
+  const auditoriaProductosFiltrada = auditoriaProductos.filter((audit) => {
+    const textoBusqueda = busquedaAuditoria.toLowerCase();
+
+    return (
+      String(audit.IdAuditoria).includes(textoBusqueda) ||
+      String(audit.IdProducto).includes(textoBusqueda) ||
+      audit.Operacion.toLowerCase().includes(textoBusqueda) ||
+      String(audit.NombreProducto || '').toLowerCase().includes(textoBusqueda) ||
+      String(audit.CambiadoPor || '').toLowerCase().includes(textoBusqueda) ||
+      String(audit.Description || '').toLowerCase().includes(textoBusqueda)
+    );
+  });
+
+  const auditoriaVentasFiltrada = auditoriaVentas.filter((audit) => {
+    const textoBusqueda = busquedaAuditoria.toLowerCase();
+
+    return (
+      String(audit.IdAuditoria).includes(textoBusqueda) ||
+      String(audit.IdVenta).includes(textoBusqueda) ||
+      String(audit.IdUsuario).includes(textoBusqueda) ||
+      String(audit.FolioRecibo || '').toLowerCase().includes(textoBusqueda) ||
+      String(audit.MetodoPago || '').toLowerCase().includes(textoBusqueda) ||
+      audit.Operacion.toLowerCase().includes(textoBusqueda) ||
+      String(audit.CambiadoPor || '').toLowerCase().includes(textoBusqueda) ||
+      String(audit.Description || '').toLowerCase().includes(textoBusqueda)
+    );
+  });
+
+  const auditoriaUsuariosFiltrada = auditoriaUsuarios.filter((audit) => {
+    const textoBusqueda = busquedaAuditoria.toLowerCase();
+
+    return (
+      String(audit.IdAuditoria).includes(textoBusqueda) ||
+      String(audit.IdUsuario).includes(textoBusqueda) ||
+      audit.Operacion.toLowerCase().includes(textoBusqueda) ||
+      String(audit.UsernameViejo || '').toLowerCase().includes(textoBusqueda) ||
+      String(audit.UsernameNuevo || '').toLowerCase().includes(textoBusqueda) ||
+      String(audit.RoleViejo || '').toLowerCase().includes(textoBusqueda) ||
+      String(audit.RoleNuevo || '').toLowerCase().includes(textoBusqueda) ||
+      String(audit.CambiadoPor || '').toLowerCase().includes(textoBusqueda) ||
+      String(audit.Description || '').toLowerCase().includes(textoBusqueda)
+    );
+  });
 
   return (
     <div className="admin-shell">
@@ -682,230 +807,454 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
             </section>
 
             <section className="panel">
-              <h2>Saldos de clientes</h2>
+              <div className="section-header">
+                <div>
+                  <h2>Saldos de clientes</h2>
+                  <p>
+                    Mostrando {billeterasFiltradas.length} de {billeteras.length} billeteras.
+                  </p>
+                </div>
 
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID Billetera</th>
-                    <th>Cliente</th>
-                    <th>Saldo</th>
-                    <th>Creado</th>
-                  </tr>
-                </thead>
+                <input
+                  className="search-input"
+                  type="text"
+                  placeholder="Buscar cliente, ID, rol, saldo..."
+                  value={busquedaBilleteras}
+                  onChange={(event) => setBusquedaBilleteras(event.target.value)}
+                />
+              </div>
 
-                <tbody>
-                  {billeteras.map((billetera) => (
-                    <tr key={billetera.IdBilletera}>
-                      <td>{billetera.IdBilletera}</td>
-                      <td>{billetera.Username}</td>
-                      <td>${Number(billetera.Saldo).toFixed(2)}</td>
-                      <td>{new Date(billetera.Creado).toLocaleString()}</td>
-                    </tr>
-                  ))}
-
-                  {billeteras.length === 0 && (
+              <div className="table-scroll wallet-scroll">
+                <table>
+                  <thead>
                     <tr>
-                      <td colSpan={4}>No hay billeteras registradas.</td>
+                      <th>ID Billetera</th>
+                      <th>ID Usuario</th>
+                      <th>Cliente</th>
+                      <th>Rol</th>
+                      <th>Saldo</th>
+                      <th>Creado</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody>
+                    {billeterasFiltradas.map((billetera) => (
+                      <tr key={billetera.IdBilletera}>
+                        <td>{billetera.IdBilletera}</td>
+                        <td>{billetera.IdUsuario}</td>
+                        <td>{billetera.Username}</td>
+                        <td>{billetera.Role}</td>
+                        <td>${Number(billetera.Saldo).toFixed(2)}</td>
+                        <td>{new Date(billetera.Creado).toLocaleString()}</td>
+                      </tr>
+                    ))}
+
+                    {billeterasFiltradas.length === 0 && (
+                      <tr>
+                        <td colSpan={6}>No se encontraron billeteras con esa búsqueda.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </section>
 
             <section className="panel">
-              <h2>Movimientos de billetera</h2>
+              <div className="section-header">
+                <div>
+                  <h2>Movimientos de billetera</h2>
+                  <p>
+                    Mostrando {movimientosFiltrados.length} de {movimientos.length} movimientos.
+                  </p>
+                </div>
 
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Cliente</th>
-                    <th>Tipo</th>
-                    <th>Monto</th>
-                    <th>Saldo anterior</th>
-                    <th>Saldo nuevo</th>
-                    <th>Recibo</th>
-                  </tr>
-                </thead>
+                <input
+                  className="search-input"
+                  type="text"
+                  placeholder="Buscar movimiento, cliente, tipo, recibo..."
+                  value={busquedaMovimientos}
+                  onChange={(event) => setBusquedaMovimientos(event.target.value)}
+                />
+              </div>
 
-                <tbody>
-                  {movimientos.map((movimiento) => (
-                    <tr key={movimiento.IdMovimiento}>
-                      <td>{movimiento.IdMovimiento}</td>
-                      <td>{movimiento.Username}</td>
-                      <td>{movimiento.TipoMovimiento}</td>
-                      <td>${Number(movimiento.Monto).toFixed(2)}</td>
-                      <td>${Number(movimiento.SaldoAnterior).toFixed(2)}</td>
-                      <td>${Number(movimiento.SaldoNuevo).toFixed(2)}</td>
-                      <td>{movimiento.FolioRecibo || 'N/A'}</td>
-                    </tr>
-                  ))}
-
-                  {movimientos.length === 0 && (
+              <div className="table-scroll wallet-movement-scroll">
+                <table>
+                  <thead>
                     <tr>
-                      <td colSpan={7}>No hay movimientos registrados.</td>
+                      <th>ID</th>
+                      <th>Cliente</th>
+                      <th>Tipo</th>
+                      <th>Monto</th>
+                      <th>Saldo anterior</th>
+                      <th>Saldo nuevo</th>
+                      <th>Recibo</th>
+                      <th>Cambiado por</th>
+                      <th>Fecha</th>
+                      <th>Descripción</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody>
+                    {movimientosFiltrados.map((movimiento) => (
+                      <tr key={movimiento.IdMovimiento}>
+                        <td>{movimiento.IdMovimiento}</td>
+                        <td>{movimiento.Username}</td>
+                        <td>{movimiento.TipoMovimiento}</td>
+                        <td>${Number(movimiento.Monto).toFixed(2)}</td>
+                        <td>${Number(movimiento.SaldoAnterior).toFixed(2)}</td>
+                        <td>${Number(movimiento.SaldoNuevo).toFixed(2)}</td>
+                        <td>{movimiento.FolioRecibo || 'N/A'}</td>
+                        <td>{movimiento.CambiadoPor || 'N/A'}</td>
+                        <td>{new Date(movimiento.FechaMovimiento).toLocaleString()}</td>
+                        <td>{movimiento.Description || 'N/A'}</td>
+                      </tr>
+                    ))}
+
+                    {movimientosFiltrados.length === 0 && (
+                      <tr>
+                        <td colSpan={10}>No se encontraron movimientos con esa búsqueda.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </section>
           </>
         )}
-
+        
         {activeTab === 'ventas' && (
-          <section className="panel">
-            <h2>Ventas registradas</h2>
+          <>
+            {ventaSeleccionada && (
+              <section className="panel receipt-detail-panel">
+                <div className="section-header">
+                  <div>
+                    <h2>Detalle de recibo</h2>
+                    <p>
+                      Recibo:{' '}
+                      <strong>{ventaSeleccionada.venta.FolioRecibo || 'N/A'}</strong>
+                    </p>
+                  </div>
 
-            <table>
-              <thead>
-                <tr>
-                  <th>ID Venta</th>
-                  <th>Recibo</th>
-                  <th>Cliente</th>
-                  <th>Total</th>
-                  <th>Método</th>
-                  <th>Estado</th>
-                  <th>Fecha</th>
-                </tr>
-              </thead>
+                  <button className="secondary" onClick={cerrarDetalleVenta}>
+                    Cerrar detalle
+                  </button>
+                </div>
 
-              <tbody>
-                {ventas.map((venta) => (
-                  <tr key={venta.IdVenta}>
-                    <td>{venta.IdVenta}</td>
-                    <td>{venta.FolioRecibo}</td>
-                    <td>{venta.Username}</td>
-                    <td>${Number(venta.TotalVenta).toFixed(2)}</td>
-                    <td>{venta.MetodoPago}</td>
-                    <td>{venta.EstadoPago}</td>
-                    <td>{new Date(venta.FechaVenta).toLocaleString()}</td>
-                  </tr>
-                ))}
+                <div className="receipt-summary">
+                  <p>
+                    <strong>ID Venta:</strong> {ventaSeleccionada.venta.IdVenta}
+                  </p>
+                  <p>
+                    <strong>Cliente:</strong> {ventaSeleccionada.venta.Username}
+                  </p>
+                  <p>
+                    <strong>Método:</strong> {ventaSeleccionada.venta.MetodoPago}
+                  </p>
+                  <p>
+                    <strong>Estado:</strong> {ventaSeleccionada.venta.EstadoPago}
+                  </p>
+                  <p>
+                    <strong>Fecha:</strong>{' '}
+                    {new Date(ventaSeleccionada.venta.FechaVenta).toLocaleString()}
+                  </p>
+                  <p>
+                    <strong>Total:</strong> $
+                    {Number(ventaSeleccionada.venta.TotalVenta).toFixed(2)}
+                  </p>
+                </div>
 
-                {ventas.length === 0 && (
-                  <tr>
-                    <td colSpan={7}>No hay ventas registradas.</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </section>
+                <div className="table-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Producto</th>
+                        <th>Cantidad</th>
+                        <th>Precio unidad</th>
+                        <th>Subtotal</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {ventaSeleccionada.detalles.map((detalle) => (
+                        <tr key={detalle.IdDetalle}>
+                          <td>{detalle.Nombre}</td>
+                          <td>{detalle.Cantidad}</td>
+                          <td>${Number(detalle.PrecioUnidad).toFixed(2)}</td>
+                          <td>${Number(detalle.TotalParcial).toFixed(2)}</td>
+                        </tr>
+                      ))}
+
+                      {ventaSeleccionada.detalles.length === 0 && (
+                        <tr>
+                          <td colSpan={4}>Esta venta no tiene detalles registrados.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            <section className="panel">
+              <div className="section-header">
+                <div>
+                  <h2>Ventas registradas</h2>
+                  <p>
+                    Mostrando {ventasFiltradas.length} de {ventas.length} ventas.
+                  </p>
+                </div>
+
+                <input
+                  className="search-input"
+                  type="text"
+                  placeholder="Buscar por cliente, recibo, estado, método o ID..."
+                  value={busquedaVentas}
+                  onChange={(event) => setBusquedaVentas(event.target.value)}
+                />
+              </div>
+
+              <div className="table-scroll ventas-scroll">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>ID Venta</th>
+                      <th>Recibo</th>
+                      <th>Cliente</th>
+                      <th>Total</th>
+                      <th>Método</th>
+                      <th>Estado</th>
+                      <th>Fecha</th>
+                      <th>Acciones</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {ventasFiltradas.map((venta) => (
+                      <tr key={venta.IdVenta}>
+                        <td>{venta.IdVenta}</td>
+                        <td>{venta.FolioRecibo || 'N/A'}</td>
+                        <td>{venta.Username}</td>
+                        <td>${Number(venta.TotalVenta).toFixed(2)}</td>
+                        <td>{venta.MetodoPago}</td>
+                        <td>{venta.EstadoPago}</td>
+                        <td>{new Date(venta.FechaVenta).toLocaleString()}</td>
+                        <td>
+                          <button onClick={() => verDetalleVenta(venta.IdVenta)}>
+                            Ver detalle
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {ventasFiltradas.length === 0 && (
+                      <tr>
+                        <td colSpan={8}>No se encontraron ventas con esa búsqueda.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          </>
         )}
-
+        
         {activeTab === 'auditoria' && (
           <>
             <section className="panel">
-              <h2>Auditoría de productos</h2>
+              <div className="section-header">
+                <div>
+                  <h2>Auditoría del sistema</h2>
 
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Operación</th>
-                    <th>Producto</th>
-                    <th>Stock anterior</th>
-                    <th>Stock nuevo</th>
-                    <th>Descripción</th>
-                  </tr>
-                </thead>
-
-                <tbody>
-                  {auditoriaProductos.map((audit) => (
-                    <tr key={audit.IdAuditoria}>
-                      <td>{audit.IdAuditoria}</td>
-                      <td>{audit.Operacion}</td>
-                      <td>{audit.NombreProducto}</td>
-                      <td>{audit.StockViejo ?? 'N/A'}</td>
-                      <td>{audit.StockNuevo ?? 'N/A'}</td>
-                      <td>{audit.Description}</td>
-                    </tr>
-                  ))}
-
-                  {auditoriaProductos.length === 0 && (
-                    <tr>
-                      <td colSpan={6}>No hay auditoría de productos.</td>
-                    </tr>
+                  {tipoAuditoria === 'productos' && (
+                    <p>
+                      Mostrando {auditoriaProductosFiltrada.length} de {auditoriaProductos.length} registros de productos.
+                    </p>
                   )}
-                </tbody>
-              </table>
+
+                  {tipoAuditoria === 'ventas' && (
+                    <p>
+                      Mostrando {auditoriaVentasFiltrada.length} de {auditoriaVentas.length} registros de ventas.
+                    </p>
+                  )}
+
+                  {tipoAuditoria === 'usuarios' && (
+                    <p>
+                      Mostrando {auditoriaUsuariosFiltrada.length} de {auditoriaUsuarios.length} registros de usuarios.
+                    </p>
+                  )}
+                </div>
+
+                <div className="audit-controls">
+                  <select
+                    value={tipoAuditoria}
+                    onChange={(event) =>
+                      setTipoAuditoria(event.target.value as 'productos' | 'ventas' | 'usuarios')
+                    }
+                  >
+                    <option value="productos">Productos</option>
+                    <option value="ventas">Ventas</option>
+                    <option value="usuarios">Usuarios</option>
+                  </select>
+
+                  <input
+                    className="search-input"
+                    type="text"
+                    placeholder="Buscar en auditoría..."
+                    value={busquedaAuditoria}
+                    onChange={(event) => setBusquedaAuditoria(event.target.value)}
+                  />
+                </div>
+              </div>
             </section>
 
-            <section className="panel">
-              <h2>Auditoría de ventas</h2>
+            {tipoAuditoria === 'productos' && (
+              <section className="panel">
+                <h2>Auditoría de productos</h2>
 
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Operación</th>
-                    <th>Venta</th>
-                    <th>Recibo</th>
-                    <th>Total</th>
-                    <th>Descripción</th>
-                  </tr>
-                </thead>
+                <div className="table-scroll audit-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Operación</th>
+                        <th>Producto</th>
+                        <th>Precio anterior</th>
+                        <th>Precio nuevo</th>
+                        <th>Stock anterior</th>
+                        <th>Stock nuevo</th>
+                        <th>Cambiado por</th>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                      </tr>
+                    </thead>
 
-                <tbody>
-                  {auditoriaVentas.map((audit) => (
-                    <tr key={audit.IdAuditoria}>
-                      <td>{audit.IdAuditoria}</td>
-                      <td>{audit.Operacion}</td>
-                      <td>{audit.IdVenta}</td>
-                      <td>{audit.FolioRecibo || 'N/A'}</td>
-                      <td>${Number(audit.TotalVenta || 0).toFixed(2)}</td>
-                      <td>{audit.Description}</td>
-                    </tr>
-                  ))}
+                    <tbody>
+                      {auditoriaProductosFiltrada.map((audit) => (
+                        <tr key={audit.IdAuditoria}>
+                          <td>{audit.IdAuditoria}</td>
+                          <td>{audit.Operacion}</td>
+                          <td>{audit.NombreProducto}</td>
+                          <td>{audit.PrecioViejo !== null ? `$${Number(audit.PrecioViejo).toFixed(2)}` : 'N/A'}</td>
+                          <td>{audit.PrecioNuevo !== null ? `$${Number(audit.PrecioNuevo).toFixed(2)}` : 'N/A'}</td>
+                          <td>{audit.StockViejo ?? 'N/A'}</td>
+                          <td>{audit.StockNuevo ?? 'N/A'}</td>
+                          <td>{audit.CambiadoPor}</td>
+                          <td>{new Date(audit.Cambiado).toLocaleString()}</td>
+                          <td>{audit.Description}</td>
+                        </tr>
+                      ))}
 
-                  {auditoriaVentas.length === 0 && (
-                    <tr>
-                      <td colSpan={6}>No hay auditoría de ventas.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </section>
+                      {auditoriaProductosFiltrada.length === 0 && (
+                        <tr>
+                          <td colSpan={10}>No se encontraron registros de auditoría de productos.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
 
-            <section className="panel">
-              <h2>Auditoría de usuarios</h2>
+            {tipoAuditoria === 'ventas' && (
+              <section className="panel">
+                <h2>Auditoría de ventas</h2>
 
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Operación</th>
-                    <th>Usuario anterior</th>
-                    <th>Usuario nuevo</th>
-                    <th>Rol anterior</th>
-                    <th>Rol nuevo</th>
-                    <th>Descripción</th>
-                  </tr>
-                </thead>
+                <div className="table-scroll audit-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Operación</th>
+                        <th>Venta</th>
+                        <th>Usuario</th>
+                        <th>Recibo</th>
+                        <th>Total</th>
+                        <th>Método</th>
+                        <th>Cambiado por</th>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                      </tr>
+                    </thead>
 
-                <tbody>
-                  {auditoriaUsuarios.map((audit) => (
-                    <tr key={audit.IdAuditoria}>
-                      <td>{audit.IdAuditoria}</td>
-                      <td>{audit.Operacion}</td>
-                      <td>{audit.UsernameViejo || 'N/A'}</td>
-                      <td>{audit.UsernameNuevo || 'N/A'}</td>
-                      <td>{audit.RoleViejo || 'N/A'}</td>
-                      <td>{audit.RoleNuevo || 'N/A'}</td>
-                      <td>{audit.Description}</td>
-                    </tr>
-                  ))}
+                    <tbody>
+                      {auditoriaVentasFiltrada.map((audit) => (
+                        <tr key={audit.IdAuditoria}>
+                          <td>{audit.IdAuditoria}</td>
+                          <td>{audit.Operacion}</td>
+                          <td>{audit.IdVenta}</td>
+                          <td>{audit.IdUsuario}</td>
+                          <td>{audit.FolioRecibo || 'N/A'}</td>
+                          <td>${Number(audit.TotalVenta || 0).toFixed(2)}</td>
+                          <td>{audit.MetodoPago || 'N/A'}</td>
+                          <td>{audit.CambiadoPor}</td>
+                          <td>{new Date(audit.Cambiado).toLocaleString()}</td>
+                          <td>{audit.Description}</td>
+                        </tr>
+                      ))}
 
-                  {auditoriaUsuarios.length === 0 && (
-                    <tr>
-                      <td colSpan={7}>No hay auditoría de usuarios.</td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </section>
+                      {auditoriaVentasFiltrada.length === 0 && (
+                        <tr>
+                          <td colSpan={10}>No se encontraron registros de auditoría de ventas.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
+
+            {tipoAuditoria === 'usuarios' && (
+              <section className="panel">
+                <h2>Auditoría de usuarios</h2>
+
+                <div className="table-scroll audit-scroll">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>ID</th>
+                        <th>Operación</th>
+                        <th>ID Usuario</th>
+                        <th>Usuario anterior</th>
+                        <th>Usuario nuevo</th>
+                        <th>Rol anterior</th>
+                        <th>Rol nuevo</th>
+                        <th>Password cambiado</th>
+                        <th>Cambiado por</th>
+                        <th>Fecha</th>
+                        <th>Descripción</th>
+                      </tr>
+                    </thead>
+
+                    <tbody>
+                      {auditoriaUsuariosFiltrada.map((audit) => (
+                        <tr key={audit.IdAuditoria}>
+                          <td>{audit.IdAuditoria}</td>
+                          <td>{audit.Operacion}</td>
+                          <td>{audit.IdUsuario}</td>
+                          <td>{audit.UsernameViejo || 'N/A'}</td>
+                          <td>{audit.UsernameNuevo || 'N/A'}</td>
+                          <td>{audit.RoleViejo || 'N/A'}</td>
+                          <td>{audit.RoleNuevo || 'N/A'}</td>
+                          <td>{audit.PasswordCambiado ? 'Sí' : 'No'}</td>
+                          <td>{audit.CambiadoPor}</td>
+                          <td>{new Date(audit.Cambiado).toLocaleString()}</td>
+                          <td>{audit.Description}</td>
+                        </tr>
+                      ))}
+
+                      {auditoriaUsuariosFiltrada.length === 0 && (
+                        <tr>
+                          <td colSpan={11}>No se encontraron registros de auditoría de usuarios.</td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+            )}
           </>
         )}
+
       </main>
     </div>
   );

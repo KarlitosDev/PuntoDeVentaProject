@@ -5,7 +5,7 @@ const obtenerProductos = async (req, res) => {
         const pool = getPool();
 
         const result = await pool.request().query(`
-            SELECT IdProducto, Nombre, Categoria, Precio, Stock, Creado
+            SELECT IdProducto, Nombre, Categoria, Precio, Stock, Creado, Icono
             FROM dbo.Productos
             ORDER BY IdProducto DESC
         `);
@@ -27,7 +27,7 @@ const obtenerProductoPorId = async (req, res) => {
         const result = await pool.request()
             .input('id', sql.Int, id)
             .query(`
-                SELECT IdProducto, Nombre, Categoria, Precio, Stock, Creado
+                SELECT IdProducto, Nombre, Categoria, Precio, Stock, Creado, Icono
                 FROM dbo.Productos
                 WHERE IdProducto = @id
             `);
@@ -49,7 +49,7 @@ const obtenerProductoPorId = async (req, res) => {
 
 const crearProducto = async (req, res) => {
     try {
-        const { Nombre, Categoria, Precio, Stock } = req.body;
+        const { Nombre, Categoria, Precio, Stock, Icono } = req.body;
 
         if (!Nombre || Precio == null || Stock == null) {
             return res.status(400).json({
@@ -70,13 +70,15 @@ const crearProducto = async (req, res) => {
             .input('Categoria', sql.VarChar(50), Categoria || null)
             .input('Precio', sql.Decimal(10, 2), Precio)
             .input('Stock', sql.Int, Stock)
+            .input('Icono', sql.VarChar(255), Icono || 'default.png')
             .query(`
-                INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock)
-                VALUES (@Nombre, @Categoria, @Precio, @Stock);
+                INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
+                VALUES (@Nombre, @Categoria, @Precio, @Stock, @Icono);
 
-                SELECT IdProducto, Nombre, Categoria, Precio, Stock, Creado
+                SELECT Top 1 IdProducto, Nombre, Categoria, Precio, Stock, Creado, Icono
                 FROM dbo.Productos
                 WHERE IdProducto = SCOPE_IDENTITY();
+                Order By IdProducto DESC
             `);
 
         res.status(201).json({
@@ -94,7 +96,7 @@ const crearProducto = async (req, res) => {
 const actualizarProducto = async (req, res) => {
     try {
         const { id } = req.params;
-        const { Nombre, Categoria, Precio, Stock } = req.body;
+        const { Nombre, Categoria, Precio, Stock, Icono } = req.body;
 
         if (!Nombre || Precio == null || Stock == null) {
             return res.status(400).json({
@@ -130,21 +132,24 @@ const actualizarProducto = async (req, res) => {
             .input('Categoria', sql.VarChar(50), Categoria || null)
             .input('Precio', sql.Decimal(10, 2), Precio)
             .input('Stock', sql.Int, Stock)
+            .input('Icono', sql.VarChar(255), Icono || 'default.png')
             .query(`
                 UPDATE dbo.Productos
                 SET Nombre = @Nombre,
                     Categoria = @Categoria,
                     Precio = @Precio,
-                    Stock = @Stock
+                    Stock = @Stock,
+                    Icono = @Icono
                 WHERE IdProducto = @id
             `);
 
         const productoActualizado = await pool.request()
             .input('id', sql.Int, id)
             .query(`
-                SELECT IdProducto, Nombre, Categoria, Precio, Stock, Creado
+                SELECT IdProducto, Nombre, Categoria, Precio, Stock, Creado, Icono
                 FROM dbo.Productos
                 WHERE IdProducto = @id
+                Order By IdProducto DESC
             `);
 
         res.json({
@@ -167,7 +172,7 @@ const eliminarProducto = async (req, res) => {
         const producto = await pool.request()
             .input('id', sql.Int, id)
             .query(`
-                SELECT IdProducto, Nombre, Categoria, Precio, Stock
+                SELECT IdProducto, Nombre, Categoria, Precio, Stock, Creado, Icono
                 FROM dbo.Productos
                 WHERE IdProducto = @id
             `);
