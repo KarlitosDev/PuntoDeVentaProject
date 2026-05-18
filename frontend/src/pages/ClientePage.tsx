@@ -25,6 +25,22 @@ type Billetera = {
   Creado: string;
 };
 
+type MovimientoBilleteraCliente = {
+  IdMovimiento: number;
+  IdBilletera: number;
+  IdUsuario: number;
+  Username: string;
+  TipoMovimiento: string;
+  Monto: number;
+  SaldoAnterior: number;
+  SaldoNuevo: number;
+  IdVenta: number | null;
+  FolioRecibo: string | null;
+  CambiadoPor: string;
+  FechaMovimiento: string;
+  Description: string;
+};
+
 type CartItem = {
   IdProducto: number;
   Nombre: string;
@@ -90,6 +106,7 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
 
   const [productos, setProductos] = useState<Producto[]>([]);
   const [billetera, setBilletera] = useState<Billetera | null>(null);
+  const [movimientosBilletera, setMovimientosBilletera] = useState<MovimientoBilleteraCliente[]>([]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [recibo, setRecibo] = useState<Recibo | null>(null);
   const [pedidosAnteriores, setPedidosAnteriores] = useState<PedidoAnterior[]>([]);
@@ -97,6 +114,7 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
   const [busquedaProductos, setBusquedaProductos] = useState('');
   const [montoRecarga, setMontoRecarga] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todos');
+  const [busquedaPedidos, setBusquedaPedidos] = useState('');
 
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
@@ -119,6 +137,15 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
     }
   };
 
+  const cargarMovimientosBilletera = async () => {
+    try {
+      const response = await api.get(`/billeteras/usuario/${usuario.IdUsuario}/movimientos`);
+      setMovimientosBilletera(response.data);
+    } catch (err: any) {
+      setError(err.response?.data?.message || 'Error cargando movimientos de billetera');
+    }
+  };
+
   const cargarPedidosAnteriores = async () => {
     try {
       const response = await api.get(`/ventas/usuario/${usuario.IdUsuario}`);
@@ -129,11 +156,16 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
   };
 
   useEffect(() => {
-    cargarProductos();
-    cargarBilletera();
-    cargarPedidosAnteriores();
-  }, []);
+    const cargarDatosIniciales = async () => {
+      await cargarProductos();
+      await cargarBilletera();
+      await cargarMovimientosBilletera();
+      await cargarPedidosAnteriores();
+    };
 
+    cargarDatosIniciales();
+  }, []);
+  
   const limpiarMensajes = () => {
     setMensaje('');
     setError('');
@@ -237,6 +269,7 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
       setMensaje('Saldo agregado correctamente');
       setMontoRecarga('');
       await cargarBilletera();
+      await cargarMovimientosBilletera();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error recargando billetera');
     }
@@ -288,6 +321,7 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
 
       await cargarProductos();
       await cargarBilletera();
+      await cargarMovimientosBilletera();
       await cargarPedidosAnteriores();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error realizando compra');
@@ -320,6 +354,19 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
   });
 
   const cantidadCarrito = cart.reduce((total, item) => total + item.Cantidad, 0);
+
+  const pedidosFiltrados = pedidosAnteriores.filter((pedido) => {
+    const textoBusqueda = busquedaPedidos.toLowerCase();
+
+    return (
+      String(pedido.IdVenta).includes(textoBusqueda) ||
+      String(pedido.FolioRecibo || '').toLowerCase().includes(textoBusqueda) ||
+      pedido.EstadoPago.toLowerCase().includes(textoBusqueda) ||
+      pedido.MetodoPago.toLowerCase().includes(textoBusqueda) ||
+      String(pedido.TotalVenta).includes(textoBusqueda) ||
+      new Date(pedido.FechaVenta).toLocaleString().toLowerCase().includes(textoBusqueda)
+    );
+  });  
 
   return (
     <div className="client-shell">
@@ -563,22 +610,86 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
                 </form>
               </div>
             </div>
+
+            <div className="wallet-movements-section">
+              <div className="client-section-header">
+                <div>
+                  <h2>Movimientos recientes</h2>
+                  <p>Consulta tus recargas y compras realizadas con billetera.</p>
+                </div>
+
+                <button onClick={cargarMovimientosBilletera}>
+                  Actualizar movimientos
+                </button>
+              </div>
+
+              <div className="client-wallet-movement-list">
+                {movimientosBilletera.map((movimiento) => (
+                  <div className="client-wallet-movement-card" key={movimiento.IdMovimiento}>
+                    <div className={`movement-type ${movimiento.TipoMovimiento.toLowerCase()}`}>
+                      {movimiento.TipoMovimiento}
+                    </div>
+
+                    <div>
+                      <strong>
+                        {movimiento.TipoMovimiento === 'RECARGA' ? 'Saldo agregado' : 'Compra realizada'}
+                      </strong>
+                      <p>
+                        {movimiento.FolioRecibo
+                          ? `Recibo ${movimiento.FolioRecibo}`
+                          : movimiento.Description || 'Movimiento de billetera'}
+                      </p>
+                    </div>
+
+                    <div className="movement-amount">
+                      <span>
+                        {movimiento.TipoMovimiento === 'RECARGA' ? '+' : '-'}$
+                        {Number(movimiento.Monto).toFixed(2)}
+                      </span>
+                      <p>Saldo nuevo: ${Number(movimiento.SaldoNuevo).toFixed(2)}</p>
+                    </div>
+
+                    <div className="movement-date">
+                      {new Date(movimiento.FechaMovimiento).toLocaleString()}
+                    </div>
+                  </div>
+                ))}
+
+                {movimientosBilletera.length === 0 && (
+                  <div className="empty-client-state">
+                    <h3>No hay movimientos de billetera</h3>
+                    <p>Cuando agregues saldo o realices una compra, aparecerá aquí.</p>
+                  </div>
+                )}
+              </div>
+            </div>
           </section>
         )}
-
+        
         {activeTab === 'pedidos' && (
           <section className="client-panel">
             <div className="client-section-header">
               <div>
                 <h2>Pedidos anteriores</h2>
-                <p>Consulta tus compras anteriores y abre el recibo asociado.</p>
+                <p>
+                  Mostrando {pedidosFiltrados.length} de {pedidosAnteriores.length} pedidos.
+                </p>
               </div>
 
-              <button onClick={cargarPedidosAnteriores}>
-                Actualizar pedidos
-              </button>
-            </div>
+              <div className="client-order-actions">
+                <input
+                  className="client-search"
+                  type="text"
+                  placeholder="Buscar por folio, fecha, total o estado..."
+                  value={busquedaPedidos}
+                  onChange={(event) => setBusquedaPedidos(event.target.value)}
+                />
 
+                <button onClick={cargarPedidosAnteriores}>
+                  Actualizar pedidos
+                </button>
+              </div>
+            </div>
             {recibo && (
               <div className="recent-purchase-banner">
                 <div>
@@ -595,68 +706,91 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
             )}
 
             {reciboAnterior && (
-              <div className="client-receipt previous-receipt">
-                <div className="client-section-header">
-                  <div>
-                    <h3>Recibo {reciboAnterior.venta.FolioRecibo || 'N/A'}</h3>
+              <div className="printed-receipt-wrapper">
+                <div className="printed-receipt">
+                  <div className="receipt-top">
+                    <div className="receipt-store-logo">TM</div>
+                    <h3>TECMART</h3>
+                    <p>Sistema de Punto de Venta</p>
+                  </div>
+
+                  <div className="receipt-line"></div>
+
+                  <div className="receipt-meta">
                     <p>
-                      Pedido #{reciboAnterior.venta.IdVenta} ·{' '}
-                      {new Date(reciboAnterior.venta.FechaVenta).toLocaleString()}
+                      <span>Recibo:</span>
+                      <strong>{reciboAnterior.venta.FolioRecibo || 'N/A'}</strong>
+                    </p>
+                    <p>
+                      <span>Pedido:</span>
+                      <strong>#{reciboAnterior.venta.IdVenta}</strong>
+                    </p>
+                    <p>
+                      <span>Cliente:</span>
+                      <strong>{reciboAnterior.venta.Username}</strong>
+                    </p>
+                    <p>
+                      <span>Fecha:</span>
+                      <strong>{new Date(reciboAnterior.venta.FechaVenta).toLocaleString()}</strong>
+                    </p>
+                    <p>
+                      <span>Método:</span>
+                      <strong>{reciboAnterior.venta.MetodoPago}</strong>
+                    </p>
+                    <p>
+                      <span>Estado:</span>
+                      <strong>{reciboAnterior.venta.EstadoPago}</strong>
                     </p>
                   </div>
 
+                  <div className="receipt-line"></div>
+
+                  <div className="receipt-items">
+                    <div className="receipt-item receipt-item-header">
+                      <span>Producto</span>
+                      <span>Cant.</span>
+                      <span>Subtotal</span>
+                    </div>
+
+                    {reciboAnterior.detalles.map((detalle) => (
+                      <div className="receipt-item" key={detalle.IdDetalle}>
+                        <span>
+                          {detalle.Nombre}
+                          <small>${Number(detalle.PrecioUnidad).toFixed(2)} c/u</small>
+                        </span>
+                        <span>{detalle.Cantidad}</span>
+                        <span>${Number(detalle.TotalParcial).toFixed(2)}</span>
+                      </div>
+                    ))}
+
+                    {reciboAnterior.detalles.length === 0 && (
+                      <p>Este pedido no tiene productos registrados.</p>
+                    )}
+                  </div>
+
+                  <div className="receipt-line"></div>
+
+                  <div className="receipt-total">
+                    <span>Total</span>
+                    <strong>${Number(reciboAnterior.venta.TotalVenta).toFixed(2)}</strong>
+                  </div>
+
+                  <div className="receipt-footer">
+                    <p>Gracias por comprar en TecMart</p>
+                    <p>Conserve este comprobante</p>
+                  </div>
+                </div>
+
+                <div className="receipt-actions">
                   <button className="client-secondary-button" onClick={cerrarReciboAnterior}>
                     Cerrar recibo
                   </button>
                 </div>
-
-                <div className="previous-receipt-summary">
-                  <p>
-                    <strong>Cliente:</strong> {reciboAnterior.venta.Username}
-                  </p>
-                  <p>
-                    <strong>Método:</strong> {reciboAnterior.venta.MetodoPago}
-                  </p>
-                  <p>
-                    <strong>Estado:</strong> {reciboAnterior.venta.EstadoPago}
-                  </p>
-                  <p>
-                    <strong>Total:</strong> ${Number(reciboAnterior.venta.TotalVenta).toFixed(2)}
-                  </p>
-                </div>
-
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Producto</th>
-                      <th>Cantidad</th>
-                      <th>Precio unidad</th>
-                      <th>Subtotal</th>
-                    </tr>
-                  </thead>
-
-                  <tbody>
-                    {reciboAnterior.detalles.map((detalle) => (
-                      <tr key={detalle.IdDetalle}>
-                        <td>{detalle.Nombre}</td>
-                        <td>{detalle.Cantidad}</td>
-                        <td>${Number(detalle.PrecioUnidad).toFixed(2)}</td>
-                        <td>${Number(detalle.TotalParcial).toFixed(2)}</td>
-                      </tr>
-                    ))}
-
-                    {reciboAnterior.detalles.length === 0 && (
-                      <tr>
-                        <td colSpan={4}>Este pedido no tiene productos registrados.</td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
               </div>
             )}
 
             <div className="previous-orders-list">
-              {pedidosAnteriores.map((pedido) => (
+              {pedidosFiltrados.map((pedido) => (
                 <div className="previous-order-card" key={pedido.IdVenta}>
                   <div>
                     <strong>{pedido.FolioRecibo || `Pedido #${pedido.IdVenta}`}</strong>
@@ -679,10 +813,12 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
                 </div>
               ))}
 
-              {pedidosAnteriores.length === 0 && (
+              {pedidosFiltrados.length === 0 && (
                 <div className="empty-client-state">
-                  <h3>No tienes pedidos anteriores</h3>
-                  <p>Cuando realices una compra, aparecerá aquí con su recibo asociado.</p>
+                  <h3>No se encontraron pedidos</h3>
+                  <p>
+                    No hay pedidos que coincidan con tu búsqueda, o todavía no has realizado compras.
+                  </p>
                   <button onClick={() => setActiveTab('menu')}>Ir al menú</button>
                 </div>
               )}

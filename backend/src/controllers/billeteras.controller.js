@@ -243,9 +243,49 @@ const recargarBilletera = async (req, res) => {
     }
 };
 
+const obtenerMovimientosPorUsuario = async (req, res) => {
+    try {
+        const { idUsuario } = req.params;
+        const pool = getPool();
+
+        const result = await pool.request()
+            .input('IdUsuario', sql.Int, idUsuario)
+            .query(`
+                SELECT 
+                    mb.IdMovimiento,
+                    mb.IdBilletera,
+                    b.IdUsuario,
+                    u.Username,
+                    mb.TipoMovimiento,
+                    mb.Monto,
+                    mb.SaldoAnterior,
+                    mb.SaldoNuevo,
+                    mb.IdVenta,
+                    v.FolioRecibo,
+                    mb.CambiadoPor,
+                    mb.FechaMovimiento,
+                    mb.Description
+                FROM dbo.Movimientos_Billetera mb
+                INNER JOIN dbo.Billeteras b ON mb.IdBilletera = b.IdBilletera
+                INNER JOIN dbo.Usuarios u ON b.IdUsuario = u.IdUsuario
+                LEFT JOIN dbo.Ventas v ON mb.IdVenta = v.IdVenta
+                WHERE b.IdUsuario = @IdUsuario
+                ORDER BY mb.FechaMovimiento DESC
+            `);
+
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({
+            message: 'Error obteniendo movimientos de billetera del usuario',
+            error: err.message
+        });
+    }
+};
+
 module.exports = {
     obtenerBilleteras,
     obtenerMovimientos,
     obtenerBilleteraPorUsuario,
-    recargarBilletera
+    recargarBilletera,
+    obtenerMovimientosPorUsuario
 };
