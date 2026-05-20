@@ -652,215 +652,215 @@ BEGIN
 END
 GO
 
-USE PuntoDeVenta;
-GO
+-- USE PuntoDeVenta;
+-- GO
 
-IF NOT EXISTS (
-    SELECT 1 
-    FROM dbo.Productos 
-    WHERE Nombre = 'Coca Cola 600ml'
-)
-BEGIN
-    INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
-    VALUES ('Coca Cola 600ml', 'Bebidas', 18.50, 50, 'coca-cola.png');
-END
-ELSE
-BEGIN
-    UPDATE dbo.Productos
-    SET 
-        Categoria = 'Bebidas',
-        Precio = 18.50,
-        Stock = CASE WHEN Stock < 10 THEN 50 ELSE Stock END,
-        Icono = 'coca-cola.png'
-    WHERE Nombre = 'Coca Cola 600ml';
-END
-GO
+-- IF NOT EXISTS (
+--     SELECT 1 
+--     FROM dbo.Productos 
+--     WHERE Nombre = 'Coca Cola 600ml'
+-- )
+-- BEGIN
+--     INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
+--     VALUES ('Coca Cola 600ml', 'Bebidas', 18.50, 50, 'coca-cola.png');
+-- END
+-- ELSE
+-- BEGIN
+--     UPDATE dbo.Productos
+--     SET 
+--         Categoria = 'Bebidas',
+--         Precio = 18.50,
+--         Stock = CASE WHEN Stock < 10 THEN 50 ELSE Stock END,
+--         Icono = 'coca-cola.png'
+--     WHERE Nombre = 'Coca Cola 600ml';
+-- END
+-- GO
 
-IF NOT EXISTS (
-    SELECT 1 
-    FROM dbo.Productos 
-    WHERE Nombre = 'Agua Natural 1L'
-)
-BEGIN
-    INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
-    VALUES ('Agua Natural 1L', 'Bebidas', 14.00, 60, 'water.png');
-END
-ELSE
-BEGIN
-    UPDATE dbo.Productos
-    SET 
-        Categoria = 'Bebidas',
-        Precio = 14.00,
-        Stock = CASE WHEN Stock < 10 THEN 60 ELSE Stock END,
-        Icono = 'water.png'
-    WHERE Nombre = 'Agua Natural 1L';
-END
-GO
+-- IF NOT EXISTS (
+--     SELECT 1 
+--     FROM dbo.Productos 
+--     WHERE Nombre = 'Agua Natural 1L'
+-- )
+-- BEGIN
+--     INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
+--     VALUES ('Agua Natural 1L', 'Bebidas', 14.00, 60, 'water.png');
+-- END
+-- ELSE
+-- BEGIN
+--     UPDATE dbo.Productos
+--     SET 
+--         Categoria = 'Bebidas',
+--         Precio = 14.00,
+--         Stock = CASE WHEN Stock < 10 THEN 60 ELSE Stock END,
+--         Icono = 'water.png'
+--     WHERE Nombre = 'Agua Natural 1L';
+-- END
+-- GO
 
-IF NOT EXISTS (
-    SELECT 1 
-    FROM dbo.Productos 
-    WHERE Nombre = 'Sabritas Original'
-)
-BEGIN
-    INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
-    VALUES ('Sabritas Original', 'Botanas', 22.00, 40, 'chips.png');
-END
-ELSE
-BEGIN
-    UPDATE dbo.Productos
-    SET 
-        Categoria = 'Botanas',
-        Precio = 22.00,
-        Stock = CASE WHEN Stock < 10 THEN 40 ELSE Stock END,
-        Icono = 'chips.png'
-    WHERE Nombre = 'Sabritas Original';
-END
-GO
+-- IF NOT EXISTS (
+--     SELECT 1 
+--     FROM dbo.Productos 
+--     WHERE Nombre = 'Sabritas Original'
+-- )
+-- BEGIN
+--     INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
+--     VALUES ('Sabritas Original', 'Botanas', 22.00, 40, 'chips.png');
+-- END
+-- ELSE
+-- BEGIN
+--     UPDATE dbo.Productos
+--     SET 
+--         Categoria = 'Botanas',
+--         Precio = 22.00,
+--         Stock = CASE WHEN Stock < 10 THEN 40 ELSE Stock END,
+--         Icono = 'chips.png'
+--     WHERE Nombre = 'Sabritas Original';
+-- END
+-- GO
 
-IF NOT EXISTS (
-    SELECT 1 
-    FROM dbo.Productos 
-    WHERE Nombre = 'Galletas Chokis'
-)
-BEGIN
-    INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
-    VALUES ('Galletas Chokis', 'Dulces', 19.50, 35, 'cookies.png');
-END
-ELSE
-BEGIN
-    UPDATE dbo.Productos
-    SET 
-        Categoria = 'Dulces',
-        Precio = 19.50,
-        Stock = CASE WHEN Stock < 10 THEN 35 ELSE Stock END,
-        Icono = 'cookies.png'
-    WHERE Nombre = 'Galletas Chokis';
-END
-GO
+-- IF NOT EXISTS (
+--     SELECT 1 
+--     FROM dbo.Productos 
+--     WHERE Nombre = 'Galletas Chokis'
+-- )
+-- BEGIN
+--     INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
+--     VALUES ('Galletas Chokis', 'Dulces', 19.50, 35, 'cookies.png');
+-- END
+-- ELSE
+-- BEGIN
+--     UPDATE dbo.Productos
+--     SET 
+--         Categoria = 'Dulces',
+--         Precio = 19.50,
+--         Stock = CASE WHEN Stock < 10 THEN 35 ELSE Stock END,
+--         Icono = 'cookies.png'
+--     WHERE Nombre = 'Galletas Chokis';
+-- END
+-- GO
 
-IF NOT EXISTS (
-    SELECT 1 
-    FROM dbo.Productos 
-    WHERE Nombre = 'Chocolate Carlos V'
-)
-BEGIN
-    INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
-    VALUES ('Chocolate Carlos V', 'Dulces', 13.00, 45, 'chocolate.png');
-END
-ELSE
-BEGIN
-    UPDATE dbo.Productos
-    SET 
-        Categoria = 'Dulces',
-        Precio = 13.00,
-        Stock = CASE WHEN Stock < 10 THEN 45 ELSE Stock END,
-        Icono = 'chocolate.png'
-    WHERE Nombre = 'Chocolate Carlos V';
-END
-GO
+-- IF NOT EXISTS (
+--     SELECT 1 
+--     FROM dbo.Productos 
+--     WHERE Nombre = 'Chocolate Carlos V'
+-- )
+-- BEGIN
+--     INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
+--     VALUES ('Chocolate Carlos V', 'Dulces', 13.00, 45, 'chocolate.png');
+-- END
+-- ELSE
+-- BEGIN
+--     UPDATE dbo.Productos
+--     SET 
+--         Categoria = 'Dulces',
+--         Precio = 13.00,
+--         Stock = CASE WHEN Stock < 10 THEN 45 ELSE Stock END,
+--         Icono = 'chocolate.png'
+--     WHERE Nombre = 'Chocolate Carlos V';
+-- END
+-- GO
 
-IF NOT EXISTS (
-    SELECT 1 
-    FROM dbo.Productos 
-    WHERE Nombre = 'Cafe Americano'
-)
-BEGIN
-    INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
-    VALUES ('Cafe Americano', 'Cafe', 25.00, 30, 'coffee.png');
-END
-ELSE
-BEGIN
-    UPDATE dbo.Productos
-    SET 
-        Categoria = 'Cafe',
-        Precio = 25.00,
-        Stock = CASE WHEN Stock < 10 THEN 30 ELSE Stock END,
-        Icono = 'coffee.png'
-    WHERE Nombre = 'Cafe Americano';
-END
-GO
+-- IF NOT EXISTS (
+--     SELECT 1 
+--     FROM dbo.Productos 
+--     WHERE Nombre = 'Cafe Americano'
+-- )
+-- BEGIN
+--     INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
+--     VALUES ('Cafe Americano', 'Cafe', 25.00, 30, 'coffee.png');
+-- END
+-- ELSE
+-- BEGIN
+--     UPDATE dbo.Productos
+--     SET 
+--         Categoria = 'Cafe',
+--         Precio = 25.00,
+--         Stock = CASE WHEN Stock < 10 THEN 30 ELSE Stock END,
+--         Icono = 'coffee.png'
+--     WHERE Nombre = 'Cafe Americano';
+-- END
+-- GO
 
-IF NOT EXISTS (
-    SELECT 1 
-    FROM dbo.Productos 
-    WHERE Nombre = 'Hot Dog Clasico'
-)
-BEGIN
-    INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
-    VALUES ('Hot Dog Clasico', 'Comida Rapida', 32.00, 25, 'hotdog.png');
-END
-ELSE
-BEGIN
-    UPDATE dbo.Productos
-    SET 
-        Categoria = 'Comida Rapida',
-        Precio = 32.00,
-        Stock = CASE WHEN Stock < 10 THEN 25 ELSE Stock END,
-        Icono = 'hotdog.png'
-    WHERE Nombre = 'Hot Dog Clasico';
-END
-GO
+-- IF NOT EXISTS (
+--     SELECT 1 
+--     FROM dbo.Productos 
+--     WHERE Nombre = 'Hot Dog Clasico'
+-- )
+-- BEGIN
+--     INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
+--     VALUES ('Hot Dog Clasico', 'Comida Rapida', 32.00, 25, 'hotdog.png');
+-- END
+-- ELSE
+-- BEGIN
+--     UPDATE dbo.Productos
+--     SET 
+--         Categoria = 'Comida Rapida',
+--         Precio = 32.00,
+--         Stock = CASE WHEN Stock < 10 THEN 25 ELSE Stock END,
+--         Icono = 'hotdog.png'
+--     WHERE Nombre = 'Hot Dog Clasico';
+-- END
+-- GO
 
-IF NOT EXISTS (
-    SELECT 1 
-    FROM dbo.Productos 
-    WHERE Nombre = 'Sandwich Jamon y Queso'
-)
-BEGIN
-    INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
-    VALUES ('Sandwich Jamon y Queso', 'Comida Rapida', 38.00, 20, 'sandwich.png');
-END
-ELSE
-BEGIN
-    UPDATE dbo.Productos
-    SET 
-        Categoria = 'Comida Rapida',
-        Precio = 38.00,
-        Stock = CASE WHEN Stock < 10 THEN 20 ELSE Stock END,
-        Icono = 'sandwich.png'
-    WHERE Nombre = 'Sandwich Jamon y Queso';
-END
-GO
+-- IF NOT EXISTS (
+--     SELECT 1 
+--     FROM dbo.Productos 
+--     WHERE Nombre = 'Sandwich Jamon y Queso'
+-- )
+-- BEGIN
+--     INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
+--     VALUES ('Sandwich Jamon y Queso', 'Comida Rapida', 38.00, 20, 'sandwich.png');
+-- END
+-- ELSE
+-- BEGIN
+--     UPDATE dbo.Productos
+--     SET 
+--         Categoria = 'Comida Rapida',
+--         Precio = 38.00,
+--         Stock = CASE WHEN Stock < 10 THEN 20 ELSE Stock END,
+--         Icono = 'sandwich.png'
+--     WHERE Nombre = 'Sandwich Jamon y Queso';
+-- END
+-- GO
 
-IF NOT EXISTS (
-    SELECT 1 
-    FROM dbo.Productos 
-    WHERE Nombre = 'Papas a la Francesa'
-)
-BEGIN
-    INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
-    VALUES ('Papas a la Francesa', 'Comida Rapida', 29.00, 25, 'fries.png');
-END
-ELSE
-BEGIN
-    UPDATE dbo.Productos
-    SET 
-        Categoria = 'Comida Rapida',
-        Precio = 29.00,
-        Stock = CASE WHEN Stock < 10 THEN 25 ELSE Stock END,
-        Icono = 'fries.png'
-    WHERE Nombre = 'Papas a la Francesa';
-END
-GO
+-- IF NOT EXISTS (
+--     SELECT 1 
+--     FROM dbo.Productos 
+--     WHERE Nombre = 'Papas a la Francesa'
+-- )
+-- BEGIN
+--     INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
+--     VALUES ('Papas a la Francesa', 'Comida Rapida', 29.00, 25, 'fries.png');
+-- END
+-- ELSE
+-- BEGIN
+--     UPDATE dbo.Productos
+--     SET 
+--         Categoria = 'Comida Rapida',
+--         Precio = 29.00,
+--         Stock = CASE WHEN Stock < 10 THEN 25 ELSE Stock END,
+--         Icono = 'fries.png'
+--     WHERE Nombre = 'Papas a la Francesa';
+-- END
+-- GO
 
-IF NOT EXISTS (
-    SELECT 1 
-    FROM dbo.Productos 
-    WHERE Nombre = 'Producto General'
-)
-BEGIN
-    INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
-    VALUES ('Producto General', 'General', 10.00, 100, 'default.png');
-END
-ELSE
-BEGIN
-    UPDATE dbo.Productos
-    SET 
-        Categoria = 'General',
-        Precio = 10.00,
-        Stock = CASE WHEN Stock < 10 THEN 100 ELSE Stock END,
-        Icono = 'default.png'
-    WHERE Nombre = 'Producto General';
-END
-GO
+-- IF NOT EXISTS (
+--     SELECT 1 
+--     FROM dbo.Productos 
+--     WHERE Nombre = 'Producto General'
+-- )
+-- BEGIN
+--     INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
+--     VALUES ('Producto General', 'General', 10.00, 100, 'default.png');
+-- END
+-- ELSE
+-- BEGIN
+--     UPDATE dbo.Productos
+--     SET 
+--         Categoria = 'General',
+--         Precio = 10.00,
+--         Stock = CASE WHEN Stock < 10 THEN 100 ELSE Stock END,
+--         Icono = 'default.png'
+--     WHERE Nombre = 'Producto General';
+-- END
+-- GO

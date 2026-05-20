@@ -60,55 +60,95 @@ const obtenerUsuarios = async (req, res) => {
 };
 
 const registrarUsuario = async (req, res) => {
+    const { Username, Password, Role } = req.body;
+
+    if (!Username || !Password || !Role) {
+        return res.status(400).json({
+            message: 'Username, Password y Role son obligatorios'
+        });
+    }
+
+    if (Role !== 'Admin' && Role !== 'Cliente') {
+        return res.status(400).json({
+            message: 'Role debe ser Admin o Cliente'
+        });
+    }
+
+    const pool = getPool();
+    const transaction = new sql.Transaction(pool);
+
     try {
-        const { Username, Password, Role } = req.body;
+        await transaction.begin();
 
-        if (!Username || !Password || !Role) {
-            return res.status(400).json({
-                message: 'Username, Password y Role son obligatorios'
-            });
-        }
+        const existeRequest = new sql.Request(transaction);
 
-        if (Role !== 'Admin' && Role !== 'Cliente') {
-            return res.status(400).json({
-                message: "Role debe ser 'Admin' o 'Cliente'"
-            });
-        }
-
-        const pool = getPool();
-
-        const existe = await pool.request()
-            .input('Username', sql.VarChar(50), Username)
+        const existeResult = await existeRequest
+            .input('Username', sql.NVarChar(50), Username)
             .query(`
                 SELECT IdUsuario
                 FROM dbo.Usuarios
                 WHERE Username = @Username
             `);
 
-        if (existe.recordset.length > 0) {
+        if (existeResult.recordset.length > 0) {
+            await transaction.rollback();
+
             return res.status(409).json({
-                message: 'El username ya existe'
+                message: 'El nombre de usuario ya existe'
             });
         }
 
-        const result = await pool.request()
-            .input('Username', sql.VarChar(50), Username)
-            .input('Password', sql.VarChar(255), Password)
-            .input('Role', sql.VarChar(10), Role)
+        const usuarioRequest = new sql.Request(transaction);
+
+        await usuarioRequest
+            .input('Username', sql.NVarChar(50), Username)
+            .input('Password', sql.NVarChar(100), Password)
+            .input('Role', sql.NVarChar(20), Role)
             .query(`
                 INSERT INTO dbo.Usuarios (Username, Password, Role)
-                VALUES (@Username, @Password, @Role);
-
-                SELECT IdUsuario, Username, Role, Creado
-                FROM dbo.Usuarios
-                WHERE IdUsuario = SCOPE_IDENTITY();
+                VALUES (@Username, @Password, @Role)
             `);
 
+        const usuarioCreadoRequest = new sql.Request(transaction);
+
+        const usuarioCreadoResult = await usuarioCreadoRequest
+            .input('Username', sql.NVarChar(50), Username)
+            .query(`
+                SELECT IdUsuario, Username, Role, Creado
+                FROM dbo.Usuarios
+                WHERE Username = @Username
+            `);
+
+        const usuarioCreado = usuarioCreadoResult.recordset[0];
+
+        if (Role === 'Cliente') {
+            const billeteraRequest = new sql.Request(transaction);
+
+            await billeteraRequest
+                .input('IdUsuario', sql.Int, usuarioCreado.IdUsuario)
+                .input('Saldo', sql.Decimal(10, 2), 0)
+                .query(`
+                    INSERT INTO dbo.Billeteras (IdUsuario, Saldo)
+                    VALUES (@IdUsuario, @Saldo)
+                `);
+        }
+
+        await transaction.commit();
+
         res.status(201).json({
-            message: 'Usuario registrado correctamente',
-            usuario: result.recordset[0]
+            message:
+                Role === 'Cliente'
+                    ? 'Usuario cliente registrado correctamente con billetera creada'
+                    : 'Usuario administrador registrado correctamente',
+            usuario: usuarioCreado
         });
     } catch (err) {
+        try {
+            await transaction.rollback();
+        } catch (rollbackErr) {
+            console.error('Error haciendo rollback:', rollbackErr.message);
+        }
+
         res.status(500).json({
             message: 'Error registrando usuario',
             error: err.message

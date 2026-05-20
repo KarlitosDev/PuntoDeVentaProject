@@ -149,9 +149,6 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   const [passwordNuevo, setPasswordNuevo] = useState('');
   const [roleNuevo, setRoleNuevo] = useState<'Admin' | 'Cliente'>('Cliente');
 
-  const [idUsuarioRecarga, setIdUsuarioRecarga] = useState('');
-  const [montoRecarga, setMontoRecarga] = useState('');
-
   const [mensaje, setMensaje] = useState('');
   const [error, setError] = useState('');
 
@@ -191,7 +188,11 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   };
 
   useEffect(() => {
-    cargarDatos();
+    const cargarDatosAsync = async () => {
+      await cargarDatos();
+    };
+
+    void cargarDatosAsync();
   }, []);
 
   const limpiarMensajes = () => {
@@ -295,25 +296,6 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
       await cargarDatos();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error registrando usuario');
-    }
-  };
-
-  const recargarBilletera = async (event: React.FormEvent) => {
-    event.preventDefault();
-    limpiarMensajes();
-
-    try {
-      await api.post('/billeteras/recargar', {
-        IdUsuario: Number(idUsuarioRecarga),
-        Monto: Number(montoRecarga),
-      });
-
-      setMensaje('Billetera recargada correctamente');
-      setIdUsuarioRecarga('');
-      setMontoRecarga('');
-      await cargarDatos();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Error recargando billetera');
     }
   };
 
@@ -779,33 +761,13 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
         {activeTab === 'billeteras' && (
           <>
             <section className="panel">
-              <h2>Recargar billetera</h2>
-
-              <form onSubmit={recargarBilletera} className="product-form">
-                <select
-                  value={idUsuarioRecarga}
-                  onChange={(event) => setIdUsuarioRecarga(event.target.value)}
-                >
-                  <option value="">Selecciona un cliente</option>
-                  {clientes.map((cliente) => (
-                    <option key={cliente.IdUsuario} value={cliente.IdUsuario}>
-                      {cliente.Username}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  type="number"
-                  step="0.01"
-                  placeholder="Monto"
-                  value={montoRecarga}
-                  onChange={(event) => setMontoRecarga(event.target.value)}
-                />
-
-                <button type="submit">Recargar</button>
-              </form>
+              <h2>Control de billeteras</h2>
+              <p>
+                Esta sección permite supervisar saldos y movimientos de billetera.
+                Las recargas son realizadas por cada cliente desde su cuenta.
+              </p>
             </section>
-
+            
             <section className="panel">
               <div className="section-header">
                 <div>
