@@ -6,21 +6,31 @@ const config = {
     password: process.env.DB_PASSWORD,
     server: process.env.DB_SERVER,
     database: process.env.DB_NAME,
-    port: parseInt(process.env.DB_PORT),
+    port: parseInt(process.env.DB_PORT, 10),
     options: {
         trustServerCertificate: true,
         encrypt: false
     }
 };
 
+let pool;
+
 const connectDB = async () => {
     try {
-        await sql.connect(config);
+        pool = await sql.connect(config);
         console.log('Conectado a SQL Server correctamente');
+        return pool;
     } catch (err) {
         console.error('Error conectando a SQL Server:', err.message);
         process.exit(1);
     }
 };
 
-module.exports = { connectDB, sql };
+const getPool = () => {
+    if (!pool) {
+        throw new Error('La base de datos no está conectada todavía');
+    }
+    return pool;
+};
+
+module.exports = { connectDB, getPool, sql };
