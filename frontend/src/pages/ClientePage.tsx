@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import jsPDF from 'jspdf';
 import api from '../api/api';
 
 type Producto = {
@@ -366,7 +367,97 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
       String(pedido.TotalVenta).includes(textoBusqueda) ||
       new Date(pedido.FechaVenta).toLocaleString().toLowerCase().includes(textoBusqueda)
     );
-  });  
+  });
+  
+  const descargarReciboPDF = () => {
+    if (!reciboAnterior) return;
+
+    const venta = reciboAnterior.venta;
+    const detalles = reciboAnterior.detalles;
+
+    const doc = new jsPDF();
+
+    let y = 18;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('TECMART', 105, y, { align: 'center' });
+
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Sistema de Punto de Venta', 105, y, { align: 'center' });
+
+    y += 10;
+    doc.line(20, y, 190, y);
+
+    y += 10;
+    doc.setFontSize(11);
+    doc.text(`Recibo: ${venta.FolioRecibo || 'N/A'}`, 20, y);
+    y += 7;
+    doc.text(`Pedido: #${venta.IdVenta}`, 20, y);
+    y += 7;
+    doc.text(`Cliente: ${venta.Username}`, 20, y);
+    y += 7;
+    doc.text(`Fecha: ${new Date(venta.FechaVenta).toLocaleString()}`, 20, y);
+    y += 7;
+    doc.text(`Metodo: ${venta.MetodoPago}`, 20, y);
+    y += 7;
+    doc.text(`Estado: ${venta.EstadoPago}`, 20, y);
+
+    y += 10;
+    doc.line(20, y, 190, y);
+
+    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Producto', 20, y);
+    doc.text('Cant.', 125, y);
+    doc.text('Subtotal', 155, y);
+
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+
+    detalles.forEach((detalle) => {
+      if (y > 260) {
+        doc.addPage();
+        y = 20;
+      }
+
+      const nombre = detalle.Nombre.length > 32
+        ? `${detalle.Nombre.substring(0, 32)}...`
+        : detalle.Nombre;
+
+      doc.text(nombre, 20, y);
+      doc.text(String(detalle.Cantidad), 130, y, { align: 'right' });
+      doc.text(`$${Number(detalle.TotalParcial).toFixed(2)}`, 180, y, { align: 'right' });
+
+      y += 6;
+      doc.setFontSize(9);
+      doc.text(`$${Number(detalle.PrecioUnidad).toFixed(2)} c/u`, 20, y);
+      doc.setFontSize(11);
+
+      y += 8;
+    });
+
+    y += 4;
+    doc.line(20, y, 190, y);
+
+    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('TOTAL', 20, y);
+    doc.text(`$${Number(venta.TotalVenta).toFixed(2)}`, 180, y, { align: 'right' });
+
+    y += 14;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Gracias por comprar en TecMart', 105, y, { align: 'center' });
+    y += 6;
+    doc.text('Conserve este comprobante', 105, y, { align: 'center' });
+
+    const nombreArchivo = `${venta.FolioRecibo || `pedido-${venta.IdVenta}`}.pdf`;
+    doc.save(nombreArchivo);
+  };  
 
   return (
     <div className="client-shell">
@@ -782,6 +873,10 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
                 </div>
 
                 <div className="receipt-actions">
+                  <button className="client-secondary-button" onClick={descargarReciboPDF}>
+                    Descargar PDF
+                  </button>
+
                   <button className="client-secondary-button" onClick={cerrarReciboAnterior}>
                     Cerrar recibo
                   </button>

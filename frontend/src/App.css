@@ -1265,6 +1265,8 @@ th {
 .receipt-actions {
   display: flex;
   align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .category-chips {
@@ -1504,6 +1506,22 @@ th {
   background: #5b6472;
 }
 
+.admin-icon-preview-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-icon-preview-cell img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  background: #20251f;
+  border: 1px solid #46513f;
+  border-radius: 6px;
+  padding: 4px;
+}
+
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1713,6 +1731,34 @@ th {
   z-index: 2;
 }
 
+.admin-product-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-product-controls select {
+  min-width: 160px;
+}
+
+.admin-products-scroll {
+  max-height: 520px;
+  overflow-y: auto;
+  border: 1px solid #46513f;
+  border-radius: 4px;
+  margin-top: 16px;
+}
+
+.admin-products-scroll table {
+  margin-top: 0;
+}
+
+.admin-products-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
 /* Responsive */
 
 @media (max-width: 1000px) {
@@ -1870,6 +1916,16 @@ th {
   .movement-amount,
   .movement-date {
     text-align: left;
+  }
+  
+  .admin-product-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-product-controls select {
+    width: 100%;
   }  
 }
 
