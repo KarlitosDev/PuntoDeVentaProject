@@ -883,7 +883,205 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
         .slice(0, 10)}.pdf`;
 
       abrirPDF(doc, nombreArchivo);
-    };  
+    };
+    
+  const descargarAuditoriaCompletaPDF = () => {
+    const doc = new jsPDF();
+
+    let y = 18;
+
+    const revisarPagina = () => {
+      if (y > 265) {
+        doc.addPage();
+        y = 20;
+      }
+    };
+
+    const agregarEncabezadoSeccion = (titulo: string) => {
+      revisarPagina();
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(13);
+      doc.text(titulo, 20, y);
+
+      y += 8;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+    };
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('TECMART', 105, y, { align: 'center' });
+
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Sistema de Punto de Venta', 105, y, { align: 'center' });
+
+    y += 10;
+    doc.line(20, y, 190, y);
+
+    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('Reporte Completo de Auditoria', 20, y);
+
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Generado por: ${username}`, 20, y);
+
+    y += 6;
+    doc.text(`Fecha: ${new Date().toLocaleString()}`, 20, y);
+
+    y += 10;
+    doc.line(20, y, 190, y);
+    y += 10;
+
+    agregarEncabezadoSeccion('Auditoria de productos');
+
+    if (auditoriaProductos.length === 0) {
+      doc.text('No hay registros de auditoria de productos.', 20, y);
+      y += 8;
+    } else {
+      auditoriaProductos.forEach((audit) => {
+        revisarPagina();
+
+        const descripcion =
+          audit.Description && audit.Description.length > 70
+            ? `${audit.Description.substring(0, 70)}...`
+            : audit.Description || 'N/A';
+
+        const producto =
+          audit.NombreProducto && audit.NombreProducto.length > 25
+            ? `${audit.NombreProducto.substring(0, 25)}...`
+            : audit.NombreProducto || 'N/A';
+
+        doc.text(
+          `#${audit.IdAuditoria} | ${audit.Operacion} | ${producto} | ${descripcion}`,
+          20,
+          y
+        );
+
+        y += 6;
+        revisarPagina();
+
+        doc.setFontSize(9);
+        doc.text(
+          `Precio: ${audit.PrecioViejo ?? 'N/A'} -> ${audit.PrecioNuevo ?? 'N/A'} | Stock: ${
+            audit.StockViejo ?? 'N/A'
+          } -> ${audit.StockNuevo ?? 'N/A'} | Usuario SQL: ${audit.CambiadoPor || 'N/A'}`,
+          24,
+          y
+        );
+        doc.setFontSize(10);
+
+        y += 8;
+      });
+    }
+
+    y += 8;
+    agregarEncabezadoSeccion('Auditoria de ventas');
+
+    if (auditoriaVentas.length === 0) {
+      doc.text('No hay registros de auditoria de ventas.', 20, y);
+      y += 8;
+    } else {
+      auditoriaVentas.forEach((audit) => {
+        revisarPagina();
+
+        const descripcion =
+          audit.Description && audit.Description.length > 70
+            ? `${audit.Description.substring(0, 70)}...`
+            : audit.Description || 'N/A';
+
+        doc.text(
+          `#${audit.IdAuditoria} | ${audit.Operacion} | Venta #${audit.IdVenta} | Recibo: ${
+            audit.FolioRecibo || 'N/A'
+          }`,
+          20,
+          y
+        );
+
+        y += 6;
+        revisarPagina();
+
+        doc.setFontSize(9);
+        doc.text(
+          `Usuario: ${audit.IdUsuario} | Total: $${Number(audit.TotalVenta || 0).toFixed(
+            2
+          )} | Metodo: ${audit.MetodoPago || 'N/A'} | ${descripcion}`,
+          24,
+          y
+        );
+        doc.setFontSize(10);
+
+        y += 8;
+      });
+    }
+
+    y += 8;
+    agregarEncabezadoSeccion('Auditoria de usuarios');
+
+    if (auditoriaUsuarios.length === 0) {
+      doc.text('No hay registros de auditoria de usuarios.', 20, y);
+      y += 8;
+    } else {
+      auditoriaUsuarios.forEach((audit) => {
+        revisarPagina();
+
+        const descripcion =
+          audit.Description && audit.Description.length > 70
+            ? `${audit.Description.substring(0, 70)}...`
+            : audit.Description || 'N/A';
+
+        doc.text(
+          `#${audit.IdAuditoria} | ${audit.Operacion} | Usuario #${audit.IdUsuario}`,
+          20,
+          y
+        );
+
+        y += 6;
+        revisarPagina();
+
+        doc.setFontSize(9);
+        doc.text(
+          `Username: ${audit.UsernameViejo || 'N/A'} -> ${
+            audit.UsernameNuevo || 'N/A'
+          } | Role: ${audit.RoleViejo || 'N/A'} -> ${
+            audit.RoleNuevo || 'N/A'
+          } | Password cambiado: ${audit.PasswordCambiado ? 'Si' : 'No'}`,
+          24,
+          y
+        );
+
+        y += 6;
+        revisarPagina();
+
+        doc.text(`Descripcion: ${descripcion}`, 24, y);
+        doc.setFontSize(10);
+
+        y += 8;
+      });
+    }
+
+    const totalRegistros =
+      auditoriaProductos.length + auditoriaVentas.length + auditoriaUsuarios.length;
+
+    y += 10;
+    revisarPagina();
+
+    doc.line(20, y, 190, y);
+    y += 8;
+
+    doc.setFont('helvetica', 'bold');
+    doc.text(`Total de registros de auditoria: ${totalRegistros}`, 20, y);
+
+    const nombreArchivo = `Auditoria_Completa_${new Date().toISOString().slice(0, 10)}.pdf`;
+
+    abrirPDF(doc, nombreArchivo);
+  };    
 
   return (
     <div className="admin-shell">
@@ -1621,7 +1819,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
         {activeTab === 'auditoria' && (
           <>
             <section className="panel">
-              <div className="section-header">
+              <div className="audit-panel-header">
                 <div>
                   <h2>Auditoría del sistema</h2>
 
@@ -1645,6 +1843,10 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                 </div>
 
                 <div className="audit-controls">
+                  <button onClick={descargarAuditoriaCompletaPDF}>
+                    Descargar auditoría completa
+                  </button>
+
                   <select
                     value={tipoAuditoria}
                     onChange={(event) =>

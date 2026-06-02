@@ -1796,14 +1796,43 @@ th {
   border-radius: 4px;
 }
 
-.audit-controls {
+.audit-panel-header {
   display: flex;
-  align-items: center;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.audit-panel-header h2 {
+  margin-bottom: 4px;
+}
+
+.audit-panel-header p {
+  margin: 0;
+  color: #c7d0c3;
+}
+
+.audit-controls {
+  display: grid;
+  grid-template-columns: 260px 200px minmax(260px, 1fr);
   gap: 10px;
+  align-items: center;
+  width: 100%;
+}
+
+.audit-controls button {
+  margin: 0;
+  white-space: nowrap;
 }
 
 .audit-controls select {
-  min-width: 160px;
+  width: 100%;
+  min-width: 0;
+}
+
+.audit-controls .search-input {
+  width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 .audit-scroll {
@@ -1976,12 +2005,12 @@ th {
   }
 
   .audit-controls {
-    width: 100%;
-    flex-direction: column;
-    align-items: stretch;
+    grid-template-columns: 1fr;
   }
 
-  .audit-controls select {
+  .audit-controls select,
+  .audit-controls .search-input,
+  .audit-controls button {
     width: 100%;
   }
 
