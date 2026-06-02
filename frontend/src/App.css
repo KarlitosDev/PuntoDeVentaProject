@@ -1265,6 +1265,8 @@ th {
 .receipt-actions {
   display: flex;
   align-items: flex-start;
+  gap: 10px;
+  flex-wrap: wrap;
 }
 
 .category-chips {
@@ -1294,6 +1296,123 @@ th {
   background: linear-gradient(135deg, #5f899d, #8fb6c8);
   color: #ffffff;
   border-color: #416f84;
+}
+
+.menu-quantity-row {
+  display: grid;
+  grid-template-columns: 38px 1fr 38px;
+  gap: 8px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.menu-quantity-row button {
+  margin: 0;
+  padding: 8px 0;
+  border-radius: 8px;
+  font-weight: bold;
+}
+
+.menu-quantity-row input {
+  width: 100%;
+  text-align: center;
+  background: #ffffff;
+  border: 1px solid #91adbb;
+  color: #17242b;
+  border-radius: 8px;
+  padding: 9px;
+  box-sizing: border-box;
+}
+
+.menu-quantity-row input:disabled,
+.menu-quantity-row button:disabled,
+.client-product-card button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.cart-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 50;
+  background: #ffffff;
+  border: 1px solid #8fbf99;
+  border-left: 6px solid #46b15d;
+  border-radius: 14px;
+  padding: 14px 42px 14px 14px;
+  min-width: 280px;
+  box-shadow: 0 16px 28px rgba(36, 56, 66, 0.22);
+  display: grid;
+  gap: 6px;
+}
+
+.cart-toast strong {
+  color: #17242b;
+}
+
+.cart-toast span {
+  color: #526a76;
+  font-size: 14px;
+}
+
+.cart-toast button {
+  margin: 4px 0 0;
+  padding: 9px 12px;
+  border-radius: 8px;
+}
+
+.toast-close {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  margin: 0;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  background: transparent !important;
+  color: #526a76 !important;
+  border: none !important;
+  font-size: 20px;
+  line-height: 20px;
+}
+
+.toast-close:hover {
+  color: #17242b !important;
+}
+
+.stock-badge {
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: bold;
+  white-space: nowrap;
+}
+
+.stock-ok {
+  background: #eef7fa;
+  color: #416f84;
+  border: 1px solid #91adbb;
+}
+
+.stock-low {
+  background: #fff4d6;
+  color: #946200;
+  border: 1px solid #e6bf5c;
+}
+
+.stock-empty {
+  background: #f8e6e6;
+  color: #8f2d2d;
+  border: 1px solid #d8a0a0;
+}
+
+.product-disabled {
+  opacity: 0.72;
+}
+
+.product-disabled .client-product-image {
+  filter: grayscale(0.7);
 }
 
 /* Admin dashboard - matte olive theme */
@@ -1504,6 +1623,22 @@ th {
   background: #5b6472;
 }
 
+.admin-icon-preview-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-icon-preview-cell img {
+  width: 34px;
+  height: 34px;
+  object-fit: contain;
+  background: #20251f;
+  border: 1px solid #46513f;
+  border-radius: 6px;
+  padding: 4px;
+}
+
 .metrics-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1593,6 +1728,38 @@ th {
 
 .edit-panel {
   border-color: #7f9a62 !important;
+}
+
+.admin-stock-badge {
+  display: inline-block;
+  min-width: 70px;
+  text-align: center;
+  padding: 6px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.admin-stock-ok {
+  background: #173d25;
+  color: #9ee6ad;
+  border: 1px solid #2d7d3f;
+}
+
+.admin-stock-low {
+  background: #4a3918;
+  color: #f0b443;
+  border: 1px solid #d99a20;
+}
+
+.admin-stock-empty {
+  background: #4a1f1f;
+  color: #ffb4b4;
+  border: 1px solid #8f2d2d;
+}
+
+.admin-low-stock-row td {
+  background: rgba(217, 154, 32, 0.08);
 }
 
 /* Receipt detail */
@@ -1708,6 +1875,34 @@ th {
 }
 
 .ventas-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.admin-product-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.admin-product-controls select {
+  min-width: 160px;
+}
+
+.admin-products-scroll {
+  max-height: 520px;
+  overflow-y: auto;
+  border: 1px solid #46513f;
+  border-radius: 4px;
+  margin-top: 16px;
+}
+
+.admin-products-scroll table {
+  margin-top: 0;
+}
+
+.admin-products-scroll thead th {
   position: sticky;
   top: 0;
   z-index: 2;
@@ -1870,6 +2065,22 @@ th {
   .movement-amount,
   .movement-date {
     text-align: left;
+  }
+  
+  .admin-product-controls {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-product-controls select {
+    width: 100%;
+  }
+  
+  .cart-toast {
+    left: 16px;
+    right: 16px;
+    bottom: 16px;
   }  
 }
 

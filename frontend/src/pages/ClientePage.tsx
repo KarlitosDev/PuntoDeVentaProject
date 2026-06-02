@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import jsPDF from 'jspdf';
 import api from '../api/api';
 
 type Producto = {
@@ -114,6 +115,8 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
   const [busquedaProductos, setBusquedaProductos] = useState('');
   const [montoRecarga, setMontoRecarga] = useState('');
   const [categoriaSeleccionada, setCategoriaSeleccionada] = useState('Todos');
+  const [cantidadesMenu, setCantidadesMenu] = useState<Record<number, number>>({});
+  const [toastCarrito, setToastCarrito] = useState('');
   const [busquedaPedidos, setBusquedaPedidos] = useState('');
 
   const [mensaje, setMensaje] = useState('');
@@ -171,19 +174,54 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
     setError('');
   };
 
+  const obtenerCantidadMenu = (idProducto: number) => {
+    return cantidadesMenu[idProducto] || 1;
+  };
+
+  const cambiarCantidadMenu = (idProducto: number, nuevaCantidad: number, stock: number) => {
+    if (nuevaCantidad < 1) return;
+
+    if (nuevaCantidad > stock) {
+      setError('No puedes seleccionar más unidades que el stock disponible');
+      return;
+    }
+
+    setCantidadesMenu({
+      ...cantidadesMenu,
+      [idProducto]: nuevaCantidad,
+    });
+  };
+
+  const mostrarToastCarrito = (texto: string) => {
+    setToastCarrito(texto);
+
+    setTimeout(() => {
+      setToastCarrito('');
+    }, 4500);
+  };  
+
   const agregarAlCarrito = (producto: Producto) => {
     limpiarMensajes();
     setRecibo(null);
+
+    const cantidadSeleccionada = obtenerCantidadMenu(producto.IdProducto);
 
     if (producto.Stock <= 0) {
       setError('Este producto no tiene stock disponible');
       return;
     }
 
+    if (cantidadSeleccionada > producto.Stock) {
+      setError('No hay suficiente stock disponible');
+      return;
+    }
+
     const existe = cart.find((item) => item.IdProducto === producto.IdProducto);
 
     if (existe) {
-      if (existe.Cantidad + 1 > producto.Stock) {
+      const nuevaCantidad = existe.Cantidad + cantidadSeleccionada;
+
+      if (nuevaCantidad > producto.Stock) {
         setError('No hay suficiente stock para agregar más unidades');
         return;
       }
@@ -191,7 +229,7 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
       setCart(
         cart.map((item) =>
           item.IdProducto === producto.IdProducto
-            ? { ...item, Cantidad: item.Cantidad + 1 }
+            ? { ...item, Cantidad: nuevaCantidad }
             : item
         )
       );
@@ -202,13 +240,19 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
           IdProducto: producto.IdProducto,
           Nombre: producto.Nombre,
           Precio: Number(producto.Precio),
-          Cantidad: 1,
+          Cantidad: cantidadSeleccionada,
           Stock: producto.Stock,
         },
       ]);
     }
 
-    setMensaje('Producto agregado al carrito');
+    setMensaje(`${producto.Nombre} agregado al carrito`);
+    mostrarToastCarrito(`${cantidadSeleccionada} x ${producto.Nombre} agregado al carrito`);
+
+    setCantidadesMenu({
+      ...cantidadesMenu,
+      [producto.IdProducto]: 1,
+    });
   };
 
   const aumentarCantidad = (idProducto: number) => {
@@ -366,7 +410,106 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
       String(pedido.TotalVenta).includes(textoBusqueda) ||
       new Date(pedido.FechaVenta).toLocaleString().toLowerCase().includes(textoBusqueda)
     );
-  });  
+  });
+
+  const abrirPDF = (doc: jsPDF, nombreArchivo: string) => {
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+
+    window.open(pdfUrl, '_blank');
+
+    doc.save(nombreArchivo);
+  };  
+  
+  const descargarReciboPDF = () => {
+    if (!reciboAnterior) return;
+
+    const venta = reciboAnterior.venta;
+    const detalles = reciboAnterior.detalles;
+
+    const doc = new jsPDF();
+
+    let y = 18;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('TECMART', 105, y, { align: 'center' });
+
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Sistema de Punto de Venta', 105, y, { align: 'center' });
+
+    y += 10;
+    doc.line(20, y, 190, y);
+
+    y += 10;
+    doc.setFontSize(11);
+    doc.text(`Recibo: ${venta.FolioRecibo || 'N/A'}`, 20, y);
+    y += 7;
+    doc.text(`Pedido: #${venta.IdVenta}`, 20, y);
+    y += 7;
+    doc.text(`Cliente: ${venta.Username}`, 20, y);
+    y += 7;
+    doc.text(`Fecha: ${new Date(venta.FechaVenta).toLocaleString()}`, 20, y);
+    y += 7;
+    doc.text(`Metodo: ${venta.MetodoPago}`, 20, y);
+    y += 7;
+    doc.text(`Estado: ${venta.EstadoPago}`, 20, y);
+
+    y += 10;
+    doc.line(20, y, 190, y);
+
+    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Producto', 20, y);
+    doc.text('Cant.', 125, y);
+    doc.text('Subtotal', 155, y);
+
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+
+    detalles.forEach((detalle) => {
+      if (y > 260) {
+        doc.addPage();
+        y = 20;
+      }
+
+      const nombre = detalle.Nombre.length > 32
+        ? `${detalle.Nombre.substring(0, 32)}...`
+        : detalle.Nombre;
+
+      doc.text(nombre, 20, y);
+      doc.text(String(detalle.Cantidad), 130, y, { align: 'right' });
+      doc.text(`$${Number(detalle.TotalParcial).toFixed(2)}`, 180, y, { align: 'right' });
+
+      y += 6;
+      doc.setFontSize(9);
+      doc.text(`$${Number(detalle.PrecioUnidad).toFixed(2)} c/u`, 20, y);
+      doc.setFontSize(11);
+
+      y += 8;
+    });
+
+    y += 4;
+    doc.line(20, y, 190, y);
+
+    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('TOTAL', 20, y);
+    doc.text(`$${Number(venta.TotalVenta).toFixed(2)}`, 180, y, { align: 'right' });
+
+    y += 14;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Gracias por comprar en TecMart', 105, y, { align: 'center' });
+    y += 6;
+    doc.text('Conserve este comprobante', 105, y, { align: 'center' });
+
+    const nombreArchivo = `${venta.FolioRecibo || `pedido-${venta.IdVenta}`}.pdf`;
+    abrirPDF(doc, nombreArchivo);
+  };  
 
   return (
     <div className="client-shell">
@@ -432,6 +575,20 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
         {mensaje && <p className="client-success">{mensaje}</p>}
         {error && <p className="client-error">{error}</p>}
 
+        {toastCarrito && (
+          <div className="cart-toast">
+            <button className="toast-close" onClick={() => setToastCarrito('')}>
+              ×
+            </button>
+
+            <strong>Carrito actualizado</strong>
+            <span>{toastCarrito}</span>
+            <button onClick={() => setActiveTab('carrito')}>
+              Ver carrito
+            </button>
+          </div>
+        )}       
+
         {activeTab === 'menu' && (
           <section className="client-panel">
             <div className="client-hero">
@@ -492,7 +649,10 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
             </div>
 
             <div className="client-product-grid">              {productosFiltrados.map((producto) => (
-                <div className="client-product-card" key={producto.IdProducto}>
+                <div
+                  className={`client-product-card ${producto.Stock === 0 ? 'product-disabled' : ''}`}
+                  key={producto.IdProducto}
+                >
                   <div className="client-product-image-box">
                     <img
                       src={`/product-icons/${producto.Icono || 'default.png'}`}
@@ -508,11 +668,70 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
 
                   <div className="client-product-info">
                     <strong>${Number(producto.Precio).toFixed(2)}</strong>
-                    <span>Stock: {producto.Stock}</span>
+
+                    {producto.Stock === 0 && (
+                      <span className="stock-badge stock-empty">Sin stock</span>
+                    )}
+
+                    {producto.Stock > 0 && producto.Stock <= 5 && (
+                      <span className="stock-badge stock-low">Últimas {producto.Stock}</span>
+                    )}
+
+                    {producto.Stock > 5 && (
+                      <span className="stock-badge stock-ok">Stock: {producto.Stock}</span>
+                    )}
                   </div>
 
-                  <button onClick={() => agregarAlCarrito(producto)}>
-                    Agregar al carrito
+                  <div className="menu-quantity-row">
+                    <button
+                      type="button"
+                      onClick={() =>
+                        cambiarCantidadMenu(
+                          producto.IdProducto,
+                          obtenerCantidadMenu(producto.IdProducto) - 1,
+                          producto.Stock
+                        )
+                      }
+                      disabled={producto.Stock <= 0}
+                    >
+                      -
+                    </button>
+
+                    <input
+                      type="number"
+                      min="1"
+                      max={producto.Stock}
+                      value={obtenerCantidadMenu(producto.IdProducto)}
+                      disabled={producto.Stock <= 0}
+                      onChange={(event) =>
+                        cambiarCantidadMenu(
+                          producto.IdProducto,
+                          Number(event.target.value),
+                          producto.Stock
+                        )
+                      }
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() =>
+                        cambiarCantidadMenu(
+                          producto.IdProducto,
+                          obtenerCantidadMenu(producto.IdProducto) + 1,
+                          producto.Stock
+                        )
+                      }
+                      disabled={producto.Stock <= 0}
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => agregarAlCarrito(producto)}
+                    disabled={producto.Stock <= 0}
+                  >
+                    {producto.Stock <= 0 ? 'Sin stock' : 'Agregar al carrito'}
                   </button>
                 </div>
               ))}
@@ -782,6 +1001,10 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
                 </div>
 
                 <div className="receipt-actions">
+                  <button className="client-secondary-button" onClick={descargarReciboPDF}>
+                    Descargar PDF
+                  </button>
+
                   <button className="client-secondary-button" onClick={cerrarReciboAnterior}>
                     Cerrar recibo
                   </button>

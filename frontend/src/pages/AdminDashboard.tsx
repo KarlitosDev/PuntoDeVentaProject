@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import jsPDF from 'jspdf';
 import api from '../api/api';
 
 type Producto = {
@@ -7,6 +8,7 @@ type Producto = {
   Categoria: string;
   Precio: number;
   Stock: number;
+  Icono?: string;
   Creado: string;
 };
 
@@ -130,20 +132,25 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   const [tipoAuditoria, setTipoAuditoria] = useState<'productos' | 'ventas' | 'usuarios'>('productos');
   const [busquedaBilleteras, setBusquedaBilleteras] = useState('');
   const [busquedaMovimientos, setBusquedaMovimientos] = useState('');
+  const [busquedaProductos, setBusquedaProductos] = useState('');
+  const [categoriaProductoFiltro, setCategoriaProductoFiltro] = useState('Todas');
   const [auditoriaProductos, setAuditoriaProductos] = useState<AuditoriaProducto[]>([]);
   const [auditoriaVentas, setAuditoriaVentas] = useState<AuditoriaVenta[]>([]);
   const [auditoriaUsuarios, setAuditoriaUsuarios] = useState<AuditoriaUsuario[]>([]);
 
   const [nombre, setNombre] = useState('');
-  const [categoria, setCategoria] = useState('');
+  const [categoria, setCategoria] = useState('General');
   const [precio, setPrecio] = useState('');
   const [stock, setStock] = useState('');
+  const [icono, setIcono] = useState('default.png');
+  const [iconosDisponibles, setIconosDisponibles] = useState<string[]>([]);
 
   const [productoEditando, setProductoEditando] = useState<Producto | null>(null);
   const [editNombre, setEditNombre] = useState('');
   const [editCategoria, setEditCategoria] = useState('');
   const [editPrecio, setEditPrecio] = useState('');
   const [editStock, setEditStock] = useState('');
+  const [editIcono, setEditIcono] = useState('default.png');
 
   const [usernameNuevo, setUsernameNuevo] = useState('');
   const [passwordNuevo, setPasswordNuevo] = useState('');
@@ -190,6 +197,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   useEffect(() => {
     const cargarDatosAsync = async () => {
       await cargarDatos();
+      await cargarIconosDisponibles();
     };
 
     void cargarDatosAsync();
@@ -210,13 +218,15 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
         Categoria: categoria,
         Precio: Number(precio),
         Stock: Number(stock),
+        Icono: icono || 'default.png',
       });
 
       setMensaje('Producto creado correctamente');
       setNombre('');
-      setCategoria('');
+      setCategoria('General');
       setPrecio('');
       setStock('');
+      setIcono('default.png');
       await cargarDatos();
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error creando producto');
@@ -231,6 +241,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     setEditCategoria(producto.Categoria);
     setEditPrecio(String(producto.Precio));
     setEditStock(String(producto.Stock));
+    setEditIcono(producto.Icono || 'default.png');
   };
 
   const cancelarEdicionProducto = () => {
@@ -239,6 +250,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     setEditCategoria('');
     setEditPrecio('');
     setEditStock('');
+    setEditIcono('default.png');
   };
 
   const actualizarProducto = async (event: React.FormEvent) => {
@@ -253,6 +265,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
         Categoria: editCategoria,
         Precio: Number(editPrecio),
         Stock: Number(editStock),
+        Icono: editIcono || 'default.png',
       });
 
       setMensaje('Producto actualizado correctamente');
@@ -314,10 +327,144 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     setVentaSeleccionada(null);
   };
 
+  const descargarReciboAdminPDF = () => {
+    if (!ventaSeleccionada) return;
+
+    const venta = ventaSeleccionada.venta;
+    const detalles = ventaSeleccionada.detalles;
+
+    const doc = new jsPDF();
+
+    let y = 18;
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('TECMART', 105, y, { align: 'center' });
+
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Sistema de Punto de Venta', 105, y, { align: 'center' });
+
+    y += 10;
+    doc.line(20, y, 190, y);
+
+    y += 10;
+    doc.setFontSize(11);
+    doc.text(`Recibo: ${venta.FolioRecibo || 'N/A'}`, 20, y);
+    y += 7;
+    doc.text(`Venta: #${venta.IdVenta}`, 20, y);
+    y += 7;
+    doc.text(`Cliente: ${venta.Username}`, 20, y);
+    y += 7;
+    doc.text(`Id Usuario: ${venta.IdUsuario}`, 20, y);
+    y += 7;
+    doc.text(`Fecha: ${new Date(venta.FechaVenta).toLocaleString()}`, 20, y);
+    y += 7;
+    doc.text(`Metodo: ${venta.MetodoPago}`, 20, y);
+    y += 7;
+    doc.text(`Estado: ${venta.EstadoPago}`, 20, y);
+
+    y += 10;
+    doc.line(20, y, 190, y);
+
+    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Producto', 20, y);
+    doc.text('Cant.', 125, y);
+    doc.text('Subtotal', 155, y);
+
+    y += 6;
+    doc.setFont('helvetica', 'normal');
+
+    detalles.forEach((detalle) => {
+      if (y > 260) {
+        doc.addPage();
+        y = 20;
+      }
+
+      const nombre =
+        detalle.Nombre.length > 32
+          ? `${detalle.Nombre.substring(0, 32)}...`
+          : detalle.Nombre;
+
+      doc.setFontSize(11);
+      doc.text(nombre, 20, y);
+      doc.text(String(detalle.Cantidad), 130, y, { align: 'right' });
+      doc.text(`$${Number(detalle.TotalParcial).toFixed(2)}`, 180, y, {
+        align: 'right',
+      });
+
+      y += 6;
+      doc.setFontSize(9);
+      doc.text(`$${Number(detalle.PrecioUnidad).toFixed(2)} c/u`, 20, y);
+
+      y += 8;
+    });
+
+    y += 4;
+    doc.line(20, y, 190, y);
+
+    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text('TOTAL', 20, y);
+    doc.text(`$${Number(venta.TotalVenta).toFixed(2)}`, 180, y, {
+      align: 'right',
+    });
+
+    y += 14;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Generado desde TecMart Admin Console', 105, y, {
+      align: 'center',
+    });
+    y += 6;
+    doc.text('Comprobante administrativo de venta', 105, y, {
+      align: 'center',
+    });
+
+    const nombreArchivo = `${venta.FolioRecibo || `venta-${venta.IdVenta}`}-admin.pdf`;
+    doc.save(nombreArchivo);
+  };
+
+  const cargarIconosDisponibles = async () => {
+    try {
+      const response = await fetch('/product-icons/icons.json');
+      const data = await response.json();
+      setIconosDisponibles(data);
+    } catch {
+      setIconosDisponibles(['default.png']);
+    }
+  };  
+
   const totalVentas = ventas.reduce((sum, venta) => sum + Number(venta.TotalVenta), 0);
   const clientes = usuarios.filter((usuario) => usuario.Role === 'Cliente');
   const admins = usuarios.filter((usuario) => usuario.Role === 'Admin');
   const productosBajoStock = productos.filter((producto) => producto.Stock <= 5);
+
+  const categoriasProductosAdmin = [
+    'Todas',
+    ...Array.from(new Set(productos.map((producto) => producto.Categoria))),
+  ];
+
+  const productosFiltradosAdmin = productos.filter((producto) => {
+    const textoBusqueda = busquedaProductos.toLowerCase();
+
+    const coincideBusqueda =
+      String(producto.IdProducto).includes(textoBusqueda) ||
+      producto.Nombre.toLowerCase().includes(textoBusqueda) ||
+      producto.Categoria.toLowerCase().includes(textoBusqueda) ||
+      String(producto.Precio).includes(textoBusqueda) ||
+      String(producto.Stock).includes(textoBusqueda) ||
+      String(producto.Icono || '').toLowerCase().includes(textoBusqueda);
+
+    const coincideCategoria =
+      categoriaProductoFiltro === 'Todas' ||
+      producto.Categoria === categoriaProductoFiltro;
+
+    return coincideBusqueda && coincideCategoria;
+  });
 
   const ventasFiltradas = ventas.filter((venta) => {
     const textoBusqueda = busquedaVentas.toLowerCase();
@@ -408,6 +555,336 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     );
   });
 
+  const categoriasPredefinidas = [
+    'Bebidas',
+    'Botanas',
+    'Dulces',
+    'Cafe',
+    'Comida Rapida',
+    'General',
+  ];
+
+  const abrirPDF = (doc: jsPDF, nombreArchivo: string) => {
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+
+    window.open(pdfUrl, '_blank');
+
+    doc.save(nombreArchivo);
+  };
+  
+  const descargarReporteSeccion = () => {
+    const doc = new jsPDF();
+
+    let y = 18;
+
+    const tituloReporte =
+      activeTab === 'dashboard'
+        ? 'Reporte General del Sistema'
+        : activeTab === 'productos'
+        ? 'Reporte de Productos'
+        : activeTab === 'usuarios'
+        ? 'Reporte de Usuarios'
+        : activeTab === 'billeteras'
+        ? 'Reporte de Billeteras'
+        : activeTab === 'ventas'
+        ? 'Reporte de Ventas'
+        : 'Reporte de Auditoria';
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.text('TECMART', 105, y, { align: 'center' });
+
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text('Sistema de Punto de Venta', 105, y, { align: 'center' });
+
+    y += 10;
+    doc.line(20, y, 190, y);
+
+    y += 10;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text(tituloReporte, 20, y);
+
+    y += 8;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Generado por: ${username}`, 20, y);
+
+    y += 6;
+    doc.text(`Fecha: ${new Date().toLocaleString()}`, 20, y);
+
+    y += 10;
+    doc.line(20, y, 190, y);
+    y += 10;
+
+    const revisarPagina = () => {
+      if (y > 265) {
+        doc.addPage();
+        y = 20;
+      }
+    };
+
+    if (activeTab === 'dashboard') {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('Resumen del sistema', 20, y);
+      y += 8;
+
+      doc.setFont('helvetica', 'normal');
+      doc.text(`Ventas totales: $${totalVentas.toFixed(2)}`, 20, y);
+      y += 7;
+      doc.text(`Productos registrados: ${productos.length}`, 20, y);
+      y += 7;
+      doc.text(`Clientes registrados: ${clientes.length}`, 20, y);
+      y += 7;
+      doc.text(`Administradores registrados: ${admins.length}`, 20, y);
+      y += 7;
+      doc.text(`Billeteras activas: ${billeteras.length}`, 20, y);
+      y += 7;
+      doc.text(`Movimientos de billetera: ${movimientos.length}`, 20, y);
+      y += 7;
+      doc.text(`Productos con bajo stock: ${productosBajoStock.length}`, 20, y);
+
+      y += 12;
+      doc.setFont('helvetica', 'bold');
+      doc.text('Productos con bajo stock', 20, y);
+      y += 8;
+
+      doc.setFont('helvetica', 'normal');
+
+      productosBajoStock.forEach((producto) => {
+        revisarPagina();
+        doc.text(
+          `#${producto.IdProducto} - ${producto.Nombre} | Categoria: ${producto.Categoria} | Stock: ${producto.Stock}`,
+          20,
+          y
+        );
+        y += 7;
+      });
+
+      if (productosBajoStock.length === 0) {
+        doc.text('No hay productos con bajo stock.', 20, y);
+      }
+    }
+
+    if (activeTab === 'productos') {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('ID', 20, y);
+      doc.text('Producto', 35, y);
+      doc.text('Categoria', 95, y);
+      doc.text('Precio', 135, y);
+      doc.text('Stock', 165, y);
+      y += 7;
+
+      doc.setFont('helvetica', 'normal');
+
+      productosFiltradosAdmin.forEach((producto) => {
+        revisarPagina();
+
+        const nombre =
+          producto.Nombre.length > 28
+            ? `${producto.Nombre.substring(0, 28)}...`
+            : producto.Nombre;
+
+        doc.text(String(producto.IdProducto), 20, y);
+        doc.text(nombre, 35, y);
+        doc.text(producto.Categoria, 95, y);
+        doc.text(`$${Number(producto.Precio).toFixed(2)}`, 135, y);
+        doc.text(String(producto.Stock), 165, y);
+        y += 7;
+      });
+
+      if (productosFiltradosAdmin.length === 0) {
+        doc.text('No hay productos para mostrar.', 20, y);
+      }
+    }
+
+    if (activeTab === 'usuarios') {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('ID', 20, y);
+      doc.text('Usuario', 40, y);
+      doc.text('Rol', 100, y);
+      doc.text('Creado', 130, y);
+      y += 7;
+
+      doc.setFont('helvetica', 'normal');
+
+      usuarios.forEach((usuario) => {
+        revisarPagina();
+
+        doc.text(String(usuario.IdUsuario), 20, y);
+        doc.text(usuario.Username, 40, y);
+        doc.text(usuario.Role, 100, y);
+        doc.text(new Date(usuario.Creado).toLocaleString(), 130, y);
+        y += 7;
+      });
+
+      if (usuarios.length === 0) {
+        doc.text('No hay usuarios registrados.', 20, y);
+      }
+    }
+
+    if (activeTab === 'billeteras') {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(12);
+      doc.text('Saldos de clientes', 20, y);
+      y += 8;
+
+      doc.setFont('helvetica', 'normal');
+
+      billeterasFiltradas.forEach((billetera) => {
+        revisarPagina();
+
+        doc.text(
+          `Billetera #${billetera.IdBilletera} | Usuario: ${billetera.Username} | Saldo: $${Number(
+            billetera.Saldo
+          ).toFixed(2)}`,
+          20,
+          y
+        );
+        y += 7;
+      });
+
+      y += 8;
+      revisarPagina();
+
+      doc.setFont('helvetica', 'bold');
+      doc.text('Movimientos de billetera', 20, y);
+      y += 8;
+
+      doc.setFont('helvetica', 'normal');
+
+      movimientosFiltrados.forEach((movimiento) => {
+        revisarPagina();
+
+        doc.text(
+          `#${movimiento.IdMovimiento} | ${movimiento.Username} | ${movimiento.TipoMovimiento} | $${Number(
+            movimiento.Monto
+          ).toFixed(2)} | Saldo nuevo: $${Number(movimiento.SaldoNuevo).toFixed(2)}`,
+          20,
+          y
+        );
+        y += 7;
+      });
+
+      if (movimientosFiltrados.length === 0) {
+        doc.text('No hay movimientos de billetera para mostrar.', 20, y);
+      }
+    }
+
+    if (activeTab === 'ventas') {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(11);
+      doc.text('Venta', 20, y);
+      doc.text('Recibo', 45, y);
+      doc.text('Cliente', 85, y);
+      doc.text('Total', 125, y);
+      doc.text('Estado', 155, y);
+      y += 7;
+
+      doc.setFont('helvetica', 'normal');
+
+      ventasFiltradas.forEach((venta) => {
+        revisarPagina();
+
+        doc.text(String(venta.IdVenta), 20, y);
+        doc.text(venta.FolioRecibo || 'N/A', 45, y);
+        doc.text(venta.Username, 85, y);
+        doc.text(`$${Number(venta.TotalVenta).toFixed(2)}`, 125, y);
+        doc.text(venta.EstadoPago, 155, y);
+        y += 7;
+      });
+
+      if (ventasFiltradas.length === 0) {
+        doc.text('No hay ventas para mostrar.', 20, y);
+      }
+    }
+
+    if (activeTab === 'auditoria') {
+      if (tipoAuditoria === 'productos') {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Auditoria de productos', 20, y);
+        y += 8;
+
+        doc.setFont('helvetica', 'normal');
+
+        auditoriaProductosFiltrada.forEach((audit) => {
+          revisarPagina();
+
+          doc.text(
+            `#${audit.IdAuditoria} | ${audit.Operacion} | ${audit.NombreProducto || 'N/A'} | ${audit.Description || 'N/A'}`,
+            20,
+            y
+          );
+          y += 7;
+        });
+
+        if (auditoriaProductosFiltrada.length === 0) {
+          doc.text('No hay auditoria de productos para mostrar.', 20, y);
+        }
+      }
+
+      if (tipoAuditoria === 'ventas') {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Auditoria de ventas', 20, y);
+        y += 8;
+
+        doc.setFont('helvetica', 'normal');
+
+        auditoriaVentasFiltrada.forEach((audit) => {
+          revisarPagina();
+
+          doc.text(
+            `#${audit.IdAuditoria} | ${audit.Operacion} | Venta #${audit.IdVenta} | ${audit.FolioRecibo || 'N/A'} | $${Number(
+              audit.TotalVenta || 0
+            ).toFixed(2)}`,
+            20,
+            y
+          );
+          y += 7;
+        });
+
+        if (auditoriaVentasFiltrada.length === 0) {
+          doc.text('No hay auditoria de ventas para mostrar.', 20, y);
+        }
+      }
+
+      if (tipoAuditoria === 'usuarios') {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Auditoria de usuarios', 20, y);
+        y += 8;
+
+        doc.setFont('helvetica', 'normal');
+
+        auditoriaUsuariosFiltrada.forEach((audit) => {
+          revisarPagina();
+
+          doc.text(
+            `#${audit.IdAuditoria} | ${audit.Operacion} | Usuario #${audit.IdUsuario} | ${audit.Description || 'N/A'}`,
+            20,
+            y
+          );
+          y += 7;
+        });
+
+        if (auditoriaUsuariosFiltrada.length === 0) {
+          doc.text('No hay auditoria de usuarios para mostrar.', 20, y);
+        }
+      }
+    }
+
+      const nombreArchivo = `${tituloReporte.replaceAll(' ', '_')}_${new Date()
+        .toISOString()
+        .slice(0, 10)}.pdf`;
+
+      abrirPDF(doc, nombreArchivo);
+    };  
+
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
@@ -472,6 +949,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
           </div>
 
           <div className="header-actions">
+            <button onClick={descargarReporteSeccion}>Descargar reporte PDF</button>
             <button onClick={cargarDatos}>Actualizar</button>
             <button onClick={onLogout}>Cerrar sesión</button>
           </div>
@@ -540,7 +1018,25 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                     <tr key={producto.IdProducto}>
                       <td>{producto.Nombre}</td>
                       <td>{producto.Categoria}</td>
-                      <td>{producto.Stock}</td>
+                      <td>
+                        {producto.Stock === 0 && (
+                          <span className="admin-stock-badge admin-stock-empty">
+                            Sin stock
+                          </span>
+                        )}
+
+                        {producto.Stock > 0 && producto.Stock <= 5 && (
+                          <span className="admin-stock-badge admin-stock-low">
+                            Bajo: {producto.Stock}
+                          </span>
+                        )}
+
+                        {producto.Stock > 5 && (
+                          <span className="admin-stock-badge admin-stock-ok">
+                            {producto.Stock}
+                          </span>
+                        )}
+                      </td>
                     </tr>
                   ))}
 
@@ -568,12 +1064,16 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                   onChange={(event) => setNombre(event.target.value)}
                 />
 
-                <input
-                  type="text"
-                  placeholder="Categoría"
+                <select
                   value={categoria}
                   onChange={(event) => setCategoria(event.target.value)}
-                />
+                >
+                  {categoriasPredefinidas.map((categoriaItem) => (
+                    <option key={categoriaItem} value={categoriaItem}>
+                      {categoriaItem}
+                    </option>
+                  ))}
+                </select>
 
                 <input
                   type="number"
@@ -589,6 +1089,17 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                   value={stock}
                   onChange={(event) => setStock(event.target.value)}
                 />
+
+                <select
+                  value={icono}
+                  onChange={(event) => setIcono(event.target.value)}
+                >
+                  {iconosDisponibles.map((nombreIcono) => (
+                    <option key={nombreIcono} value={nombreIcono}>
+                      {nombreIcono}
+                    </option>
+                  ))}
+                </select>                
 
                 <button type="submit">Agregar producto</button>
               </form>
@@ -606,12 +1117,16 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                     onChange={(event) => setEditNombre(event.target.value)}
                   />
 
-                  <input
-                    type="text"
-                    placeholder="Categoría"
+                  <select
                     value={editCategoria}
                     onChange={(event) => setEditCategoria(event.target.value)}
-                  />
+                  >
+                    {categoriasPredefinidas.map((categoriaItem) => (
+                      <option key={categoriaItem} value={categoriaItem}>
+                        {categoriaItem}
+                      </option>
+                    ))}
+                  </select>
 
                   <input
                     type="number"
@@ -628,6 +1143,17 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                     onChange={(event) => setEditStock(event.target.value)}
                   />
 
+                  <select
+                    value={editIcono}
+                    onChange={(event) => setEditIcono(event.target.value)}
+                  >
+                    {iconosDisponibles.map((nombreIcono) => (
+                      <option key={nombreIcono} value={nombreIcono}>
+                        {nombreIcono}
+                      </option>
+                    ))}
+                  </select>                  
+
                   <button type="submit">Guardar cambios</button>
 
                   <button
@@ -642,52 +1168,118 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
             )}
 
             <section className="panel">
-              <h2>Productos registrados</h2>
+              <div className="section-header">
+                <div>
+                  <h2>Productos registrados</h2>
+                  <p>
+                    Mostrando {productosFiltradosAdmin.length} de {productos.length} productos.
+                  </p>
+                </div>
 
-              <table>
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Nombre</th>
-                    <th>Categoría</th>
-                    <th>Precio</th>
-                    <th>Stock</th>
-                    <th>Acciones</th>
-                  </tr>
-                </thead>
+                <div className="admin-product-controls">
+                  <select
+                    value={categoriaProductoFiltro}
+                    onChange={(event) => setCategoriaProductoFiltro(event.target.value)}
+                  >
+                    {categoriasProductosAdmin.map((categoria) => (
+                      <option key={categoria} value={categoria}>
+                        {categoria}
+                      </option>
+                    ))}
+                  </select>
 
-                <tbody>
-                  {productos.map((producto) => (
-                    <tr key={producto.IdProducto}>
-                      <td>{producto.IdProducto}</td>
-                      <td>{producto.Nombre}</td>
-                      <td>{producto.Categoria}</td>
-                      <td>${Number(producto.Precio).toFixed(2)}</td>
-                      <td>{producto.Stock}</td>
-                      <td>
-                        <div className="table-actions">
-                          <button onClick={() => iniciarEdicionProducto(producto)}>
-                            Editar
-                          </button>
+                  <input
+                    className="search-input"
+                    type="text"
+                    placeholder="Buscar producto, categoría, precio, stock o icono..."
+                    value={busquedaProductos}
+                    onChange={(event) => setBusquedaProductos(event.target.value)}
+                  />
+                </div>
+              </div>
 
-                          <button
-                            className="danger"
-                            onClick={() => eliminarProducto(producto.IdProducto)}
-                          >
-                            Eliminar
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-
-                  {productos.length === 0 && (
+              <div className="table-scroll admin-products-scroll">
+                <table>
+                  <thead>
                     <tr>
-                      <td colSpan={6}>No hay productos registrados.</td>
+                      <th>ID</th>
+                      <th>Nombre</th>
+                      <th>Categoría</th>
+                      <th>Precio</th>
+                      <th>Stock</th>
+                      <th>Icono</th>
+                      <th>Acciones</th>
                     </tr>
-                  )}
-                </tbody>
-              </table>
+                  </thead>
+
+                  <tbody>
+                    {productosFiltradosAdmin.map((producto) => (
+                      <tr
+                        key={producto.IdProducto}
+                        className={producto.Stock <= 5 ? 'admin-low-stock-row' : ''}
+                      >
+                        <td>{producto.IdProducto}</td>
+                        <td>{producto.Nombre}</td>
+                        <td>{producto.Categoria}</td>
+                        <td>${Number(producto.Precio).toFixed(2)}</td>
+                        <td>
+                          {producto.Stock === 0 && (
+                            <span className="admin-stock-badge admin-stock-empty">
+                              Sin stock
+                            </span>
+                          )}
+
+                          {producto.Stock > 0 && producto.Stock <= 5 && (
+                            <span className="admin-stock-badge admin-stock-low">
+                              Bajo: {producto.Stock}
+                            </span>
+                          )}
+
+                          {producto.Stock > 5 && (
+                            <span className="admin-stock-badge admin-stock-ok">
+                              {producto.Stock}
+                            </span>
+                          )}
+                        </td>
+
+                        <td>
+                          <div className="admin-icon-preview-cell">
+                            <img
+                              src={`/product-icons/${producto.Icono || 'default.png'}`}
+                              alt={producto.Icono || 'default.png'}
+                              onError={(event) => {
+                                event.currentTarget.src = '/product-icons/default.png';
+                              }}
+                            />
+                            <span>{producto.Icono || 'default.png'}</span>
+                          </div>
+                        </td>
+
+                        <td>
+                          <div className="table-actions">
+                            <button onClick={() => iniciarEdicionProducto(producto)}>
+                              Editar
+                            </button>
+
+                            <button
+                              className="danger"
+                              onClick={() => eliminarProducto(producto.IdProducto)}
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+
+                    {productosFiltradosAdmin.length === 0 && (
+                      <tr>
+                        <td colSpan={7}>No se encontraron productos con esa búsqueda.</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </section>
           </>
         )}
@@ -897,9 +1489,15 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                     </p>
                   </div>
 
-                  <button className="secondary" onClick={cerrarDetalleVenta}>
-                    Cerrar detalle
-                  </button>
+                  <div className="receipt-actions">
+                    <button className="secondary" onClick={descargarReciboAdminPDF}>
+                      Descargar PDF
+                    </button>
+
+                    <button className="secondary" onClick={cerrarDetalleVenta}>
+                      Cerrar detalle
+                    </button>
+                  </div>
                 </div>
 
                 <div className="receipt-summary">

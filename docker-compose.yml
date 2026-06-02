@@ -29,5 +29,14 @@ services:
     depends_on:
       - mssql
 
+  frontend:
+    build: ./frontend
+    container_name: pos-frontend
+    restart: always
+    ports:
+      - "80:5173"
+    depends_on:
+      - backend
+
 volumes:
   mssql-data:
