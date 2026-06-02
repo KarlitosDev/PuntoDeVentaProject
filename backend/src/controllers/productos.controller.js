@@ -1,0 +1,212 @@
+const { getPool, sql } = require('../db/connection');
+
+const obtenerProductos = async (req, res) => {
+    try {
+        const pool = getPool();
+
+        const result = await pool.request().query(`
+            SELECT IdProducto, Nombre, Categoria, Precio, Stock, Creado, Icono
+            FROM dbo.Productos
+            ORDER BY IdProducto DESC
+        `);
+
+        res.json(result.recordset);
+    } catch (err) {
+        res.status(500).json({
+            message: 'Error obteniendo productos',
+            error: err.message
+        });
+    }
+};
+
+const obtenerProductoPorId = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pool = getPool();
+
+        const result = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`
+                SELECT IdProducto, Nombre, Categoria, Precio, Stock, Creado, Icono
+                FROM dbo.Productos
+                WHERE IdProducto = @id
+            `);
+
+        if (result.recordset.length === 0) {
+            return res.status(404).json({
+                message: 'Producto no encontrado'
+            });
+        }
+
+        res.json(result.recordset[0]);
+    } catch (err) {
+        res.status(500).json({
+            message: 'Error obteniendo producto',
+            error: err.message
+        });
+    }
+};
+
+const crearProducto = async (req, res) => {
+    try {
+        const { Nombre, Categoria, Precio, Stock, Icono } = req.body;
+        const pool = getPool();
+
+        if (!Nombre || !Categoria || Precio === undefined || Stock === undefined) {
+            return res.status(400).json({
+                message: 'Nombre, Categoria, Precio y Stock son obligatorios'
+            });
+        }
+
+        await pool.request()
+            .input('Nombre', sql.NVarChar(100), Nombre)
+            .input('Categoria', sql.NVarChar(50), Categoria)
+            .input('Precio', sql.Decimal(10, 2), Number(Precio))
+            .input('Stock', sql.Int, Number(Stock))
+            .input('Icono', sql.NVarChar(255), Icono || 'default.png')
+            .query(`
+                INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
+                VALUES (@Nombre, @Categoria, @Precio, @Stock, @Icono);
+            `);
+
+        const result = await pool.request().query(`
+            SELECT TOP 1
+                IdProducto,
+                Nombre,
+                Categoria,
+                Precio,
+                Stock,
+                Icono,
+                Creado
+            FROM dbo.Productos
+            ORDER BY IdProducto DESC;
+        `);
+
+        res.status(201).json({
+            message: 'Producto creado correctamente',
+            producto: result.recordset[0]
+        });
+    } catch (err) {
+        res.status(500).json({
+            message: 'Error creando producto',
+            error: err.message
+        });
+    }
+};
+
+const actualizarProducto = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { Nombre, Categoria, Precio, Stock, Icono } = req.body;
+
+        if (!Nombre || Precio == null || Stock == null) {
+            return res.status(400).json({
+                message: 'Nombre, Precio y Stock son obligatorios'
+            });
+        }
+
+        if (Precio < 0 || Stock < 0) {
+            return res.status(400).json({
+                message: 'Precio y Stock no pueden ser negativos'
+            });
+        }
+
+        const pool = getPool();
+
+        const existe = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`
+                SELECT IdProducto
+                FROM dbo.Productos
+                WHERE IdProducto = @id
+            `);
+
+        if (existe.recordset.length === 0) {
+            return res.status(404).json({
+                message: 'Producto no encontrado'
+            });
+        }
+
+        await pool.request()
+            .input('id', sql.Int, id)
+            .input('Nombre', sql.VarChar(100), Nombre)
+            .input('Categoria', sql.VarChar(50), Categoria || null)
+            .input('Precio', sql.Decimal(10, 2), Precio)
+            .input('Stock', sql.Int, Stock)
+            .input('Icono', sql.VarChar(255), Icono || 'default.png')
+            .query(`
+                UPDATE dbo.Productos
+                SET Nombre = @Nombre,
+                    Categoria = @Categoria,
+                    Precio = @Precio,
+                    Stock = @Stock,
+                    Icono = @Icono
+                WHERE IdProducto = @id
+            `);
+
+        const productoActualizado = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`
+                SELECT IdProducto, Nombre, Categoria, Precio, Stock, Creado, Icono
+                FROM dbo.Productos
+                WHERE IdProducto = @id
+                Order By IdProducto DESC
+            `);
+
+        res.json({
+            message: 'Producto actualizado correctamente',
+            producto: productoActualizado.recordset[0]
+        });
+    } catch (err) {
+        res.status(500).json({
+            message: 'Error actualizando producto',
+            error: err.message
+        });
+    }
+};
+
+const eliminarProducto = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const pool = getPool();
+
+        const producto = await pool.request()
+            .input('id', sql.Int, id)
+            .query(`
+                SELECT IdProducto, Nombre, Categoria, Precio, Stock, Creado, Icono
+                FROM dbo.Productos
+                WHERE IdProducto = @id
+            `);
+
+        if (producto.recordset.length === 0) {
+            return res.status(404).json({
+                message: 'Producto no encontrado'
+            });
+        }
+
+        await pool.request()
+            .input('id', sql.Int, id)
+            .query(`
+                DELETE FROM dbo.Productos
+                WHERE IdProducto = @id
+            `);
+
+        res.json({
+            message: 'Producto eliminado correctamente',
+            producto: producto.recordset[0]
+        });
+    } catch (err) {
+        res.status(500).json({
+            message: 'Error eliminando producto',
+            error: err.message
+        });
+    }
+};
+
+module.exports = {
+    obtenerProductos,
+    obtenerProductoPorId,
+    crearProducto,
+    actualizarProducto,
+    eliminarProducto
+};
