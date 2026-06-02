@@ -139,7 +139,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
   const [auditoriaUsuarios, setAuditoriaUsuarios] = useState<AuditoriaUsuario[]>([]);
 
   const [nombre, setNombre] = useState('');
-  const [categoria, setCategoria] = useState('');
+  const [categoria, setCategoria] = useState('General');
   const [precio, setPrecio] = useState('');
   const [stock, setStock] = useState('');
   const [icono, setIcono] = useState('default.png');
@@ -223,7 +223,7 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
 
       setMensaje('Producto creado correctamente');
       setNombre('');
-      setCategoria('');
+      setCategoria('General');
       setPrecio('');
       setStock('');
       setIcono('default.png');
@@ -555,6 +555,15 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
     );
   });
 
+  const categoriasPredefinidas = [
+    'Bebidas',
+    'Botanas',
+    'Dulces',
+    'Cafe',
+    'Comida Rapida',
+    'General',
+  ];
+
   return (
     <div className="admin-shell">
       <aside className="admin-sidebar">
@@ -715,12 +724,16 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                   onChange={(event) => setNombre(event.target.value)}
                 />
 
-                <input
-                  type="text"
-                  placeholder="Categoría"
+                <select
                   value={categoria}
                   onChange={(event) => setCategoria(event.target.value)}
-                />
+                >
+                  {categoriasPredefinidas.map((categoriaItem) => (
+                    <option key={categoriaItem} value={categoriaItem}>
+                      {categoriaItem}
+                    </option>
+                  ))}
+                </select>
 
                 <input
                   type="number"
@@ -764,12 +777,16 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
                     onChange={(event) => setEditNombre(event.target.value)}
                   />
 
-                  <input
-                    type="text"
-                    placeholder="Categoría"
+                  <select
                     value={editCategoria}
                     onChange={(event) => setEditCategoria(event.target.value)}
-                  />
+                  >
+                    {categoriasPredefinidas.map((categoriaItem) => (
+                      <option key={categoriaItem} value={categoriaItem}>
+                        {categoriaItem}
+                      </option>
+                    ))}
+                  </select>
 
                   <input
                     type="number"

@@ -50,36 +50,37 @@ const obtenerProductoPorId = async (req, res) => {
 const crearProducto = async (req, res) => {
     try {
         const { Nombre, Categoria, Precio, Stock, Icono } = req.body;
-
-        if (!Nombre || Precio == null || Stock == null) {
-            return res.status(400).json({
-                message: 'Nombre, Precio y Stock son obligatorios'
-            });
-        }
-
-        if (Precio < 0 || Stock < 0) {
-            return res.status(400).json({
-                message: 'Precio y Stock no pueden ser negativos'
-            });
-        }
-
         const pool = getPool();
 
-        const result = await pool.request()
-            .input('Nombre', sql.VarChar(100), Nombre)
-            .input('Categoria', sql.VarChar(50), Categoria || null)
-            .input('Precio', sql.Decimal(10, 2), Precio)
-            .input('Stock', sql.Int, Stock)
-            .input('Icono', sql.VarChar(255), Icono || 'default.png')
+        if (!Nombre || !Categoria || Precio === undefined || Stock === undefined) {
+            return res.status(400).json({
+                message: 'Nombre, Categoria, Precio y Stock son obligatorios'
+            });
+        }
+
+        await pool.request()
+            .input('Nombre', sql.NVarChar(100), Nombre)
+            .input('Categoria', sql.NVarChar(50), Categoria)
+            .input('Precio', sql.Decimal(10, 2), Number(Precio))
+            .input('Stock', sql.Int, Number(Stock))
+            .input('Icono', sql.NVarChar(255), Icono || 'default.png')
             .query(`
                 INSERT INTO dbo.Productos (Nombre, Categoria, Precio, Stock, Icono)
                 VALUES (@Nombre, @Categoria, @Precio, @Stock, @Icono);
-
-                SELECT Top 1 IdProducto, Nombre, Categoria, Precio, Stock, Creado, Icono
-                FROM dbo.Productos
-                WHERE IdProducto = SCOPE_IDENTITY();
-                Order By IdProducto DESC
             `);
+
+        const result = await pool.request().query(`
+            SELECT TOP 1
+                IdProducto,
+                Nombre,
+                Categoria,
+                Precio,
+                Stock,
+                Icono,
+                Creado
+            FROM dbo.Productos
+            ORDER BY IdProducto DESC;
+        `);
 
         res.status(201).json({
             message: 'Producto creado correctamente',
