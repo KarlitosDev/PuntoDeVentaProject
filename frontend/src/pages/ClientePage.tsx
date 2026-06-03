@@ -427,85 +427,173 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
     const venta = reciboAnterior.venta;
     const detalles = reciboAnterior.detalles;
 
-    const doc = new jsPDF();
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: [80, 200],
+    });
 
-    let y = 18;
+    let y = 10;
 
+    const revisarPagina = () => {
+      if (y > 185) {
+        doc.addPage([80, 200], 'portrait');
+        y = 10;
+      }
+    };
+
+    const linea = () => {
+      doc.setDrawColor(120, 120, 120);
+      doc.setLineDashPattern([1.5, 1.5], 0);
+      doc.line(8, y, 72, y);
+      doc.setLineDashPattern([], 0);
+      y += 5;
+    };
+
+    doc.setFillColor(31, 122, 58);
+    doc.roundedRect(30, y, 20, 14, 3, 3, 'F');
+
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text('TECMART', 105, y, { align: 'center' });
-
-    y += 8;
-    doc.setFont('helvetica', 'normal');
     doc.setFontSize(10);
-    doc.text('Sistema de Punto de Venta', 105, y, { align: 'center' });
+    doc.text('TM', 40, y + 9, { align: 'center' });
 
-    y += 10;
-    doc.line(20, y, 190, y);
+    y += 20;
 
-    y += 10;
-    doc.setFontSize(11);
-    doc.text(`Recibo: ${venta.FolioRecibo || 'N/A'}`, 20, y);
-    y += 7;
-    doc.text(`Pedido: #${venta.IdVenta}`, 20, y);
-    y += 7;
-    doc.text(`Cliente: ${venta.Username}`, 20, y);
-    y += 7;
-    doc.text(`Fecha: ${new Date(venta.FechaVenta).toLocaleString()}`, 20, y);
-    y += 7;
-    doc.text(`Metodo: ${venta.MetodoPago}`, 20, y);
-    y += 7;
-    doc.text(`Estado: ${venta.EstadoPago}`, 20, y);
-
-    y += 10;
-    doc.line(20, y, 190, y);
-
-    y += 10;
+    doc.setTextColor(23, 36, 43);
     doc.setFont('helvetica', 'bold');
-    doc.text('Producto', 20, y);
-    doc.text('Cant.', 125, y);
-    doc.text('Subtotal', 155, y);
+    doc.setFontSize(16);
+    doc.text('TECMART', 40, y, { align: 'center' });
 
-    y += 6;
+    y += 5;
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(75, 85, 99);
+    doc.text('Punto de Venta', 40, y, { align: 'center' });
+
+    y += 7;
+
+    doc.setFillColor(23, 36, 43);
+    doc.roundedRect(12, y, 56, 8, 4, 4, 'F');
+
+    doc.setTextColor(255, 255, 255);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7);
+    doc.text(
+      venta.FolioRecibo || `PEDIDO-${venta.IdVenta}`,
+      40,
+      y + 5.4,
+      { align: 'center' }
+    );
+
+    y += 12;
+    linea();
+
+    doc.setTextColor(31, 41, 55);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7.5);
+
+    const meta = [
+      ['Pedido', `#${venta.IdVenta}`],
+      ['Cliente', venta.Username],
+      ['Fecha', new Date(venta.FechaVenta).toLocaleString()],
+      ['Metodo', venta.MetodoPago],
+      ['Estado', venta.EstadoPago],
+    ];
+
+    meta.forEach(([label, value]) => {
+      revisarPagina();
+
+      doc.setTextColor(75, 85, 99);
+      doc.text(label, 8, y);
+
+      doc.setTextColor(17, 24, 39);
+      doc.setFont('helvetica', 'bold');
+      doc.text(String(value), 72, y, { align: 'right' });
+
+      doc.setFont('helvetica', 'normal');
+      y += 5;
+    });
+
+    y += 2;
+    linea();
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(17, 24, 39);
+    doc.text('Producto', 8, y);
+    doc.text('Cant.', 52, y, { align: 'right' });
+    doc.text('Subtotal', 72, y, { align: 'right' });
+
+    y += 5;
+
     doc.setFont('helvetica', 'normal');
 
     detalles.forEach((detalle) => {
-      if (y > 260) {
-        doc.addPage();
-        y = 20;
-      }
+      revisarPagina();
 
-      const nombre = detalle.Nombre.length > 32
-        ? `${detalle.Nombre.substring(0, 32)}...`
-        : detalle.Nombre;
+      const nombre =
+        detalle.Nombre.length > 24
+          ? `${detalle.Nombre.substring(0, 24)}...`
+          : detalle.Nombre;
 
-      doc.text(nombre, 20, y);
-      doc.text(String(detalle.Cantidad), 130, y, { align: 'right' });
-      doc.text(`$${Number(detalle.TotalParcial).toFixed(2)}`, 180, y, { align: 'right' });
+      doc.setTextColor(31, 41, 55);
+      doc.setFontSize(7.5);
+      doc.text(nombre, 8, y);
 
-      y += 6;
-      doc.setFontSize(9);
-      doc.text(`$${Number(detalle.PrecioUnidad).toFixed(2)} c/u`, 20, y);
-      doc.setFontSize(11);
+      doc.text(String(detalle.Cantidad), 52, y, { align: 'right' });
+      doc.text(`$${Number(detalle.TotalParcial).toFixed(2)}`, 72, y, {
+        align: 'right',
+      });
 
-      y += 8;
+      y += 4;
+
+      doc.setTextColor(107, 114, 128);
+      doc.setFontSize(6.5);
+      doc.text(`$${Number(detalle.PrecioUnidad).toFixed(2)} c/u`, 8, y);
+
+      y += 5;
     });
 
-    y += 4;
-    doc.line(20, y, 190, y);
+    if (detalles.length === 0) {
+      doc.text('Este pedido no tiene productos registrados.', 8, y);
+      y += 5;
+    }
 
-    y += 10;
+    y += 2;
+    linea();
+
+    doc.setFillColor(23, 36, 43);
+    doc.roundedRect(8, y, 64, 12, 2, 2, 'F');
+
+    doc.setTextColor(255, 255, 255);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text('TOTAL', 20, y);
-    doc.text(`$${Number(venta.TotalVenta).toFixed(2)}`, 180, y, { align: 'right' });
+    doc.setFontSize(9);
+    doc.text('TOTAL PAGADO', 11, y + 7.5);
+    doc.text(`$${Number(venta.TotalVenta).toFixed(2)}`, 69, y + 7.5, {
+      align: 'right',
+    });
 
-    y += 14;
+    y += 18;
+
+    doc.setTextColor(75, 85, 99);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text('Gracias por comprar en TecMart', 105, y, { align: 'center' });
+    doc.setFontSize(7);
+    doc.text('Gracias por comprar en TecMart', 40, y, { align: 'center' });
+
+    y += 4;
+
+    doc.text('Conserve este comprobante para cualquier aclaracion', 40, y, {
+      align: 'center',
+    });
+
     y += 6;
-    doc.text('Conserve este comprobante', 105, y, { align: 'center' });
+
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineDashPattern([1, 1], 0);
+    doc.line(10, y, 70, y);
+    doc.setLineDashPattern([], 0);
 
     const nombreArchivo = `${venta.FolioRecibo || `pedido-${venta.IdVenta}`}.pdf`;
     abrirPDF(doc, nombreArchivo);
@@ -930,34 +1018,38 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
                   <div className="receipt-top">
                     <div className="receipt-store-logo">TM</div>
                     <h3>TECMART</h3>
-                    <p>Sistema de Punto de Venta</p>
+                    <p>Punto de Venta</p>
+
+                    <div className="receipt-badge">
+                      {reciboAnterior.venta.FolioRecibo || `PEDIDO-${reciboAnterior.venta.IdVenta}`}
+                    </div>
                   </div>
 
                   <div className="receipt-line"></div>
 
                   <div className="receipt-meta">
                     <p>
-                      <span>Recibo:</span>
-                      <strong>{reciboAnterior.venta.FolioRecibo || 'N/A'}</strong>
-                    </p>
-                    <p>
-                      <span>Pedido:</span>
+                      <span>Pedido</span>
                       <strong>#{reciboAnterior.venta.IdVenta}</strong>
                     </p>
+
                     <p>
-                      <span>Cliente:</span>
+                      <span>Cliente</span>
                       <strong>{reciboAnterior.venta.Username}</strong>
                     </p>
+
                     <p>
-                      <span>Fecha:</span>
+                      <span>Fecha</span>
                       <strong>{new Date(reciboAnterior.venta.FechaVenta).toLocaleString()}</strong>
                     </p>
+
                     <p>
-                      <span>Método:</span>
+                      <span>Método</span>
                       <strong>{reciboAnterior.venta.MetodoPago}</strong>
                     </p>
+
                     <p>
-                      <span>Estado:</span>
+                      <span>Estado</span>
                       <strong>{reciboAnterior.venta.EstadoPago}</strong>
                     </p>
                   </div>
@@ -977,7 +1069,9 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
                           {detalle.Nombre}
                           <small>${Number(detalle.PrecioUnidad).toFixed(2)} c/u</small>
                         </span>
+
                         <span>{detalle.Cantidad}</span>
+
                         <span>${Number(detalle.TotalParcial).toFixed(2)}</span>
                       </div>
                     ))}
@@ -989,14 +1083,26 @@ function ClientePage({ usuario, onLogout }: ClientePageProps) {
 
                   <div className="receipt-line"></div>
 
+                  <div className="receipt-payment-box">
+                    <p>
+                      <span>Método de pago</span>
+                      <strong>{reciboAnterior.venta.MetodoPago}</strong>
+                    </p>
+
+                    <p>
+                      <span>Estado</span>
+                      <strong>{reciboAnterior.venta.EstadoPago}</strong>
+                    </p>
+                  </div>
+
                   <div className="receipt-total">
-                    <span>Total</span>
+                    <span>Total pagado</span>
                     <strong>${Number(reciboAnterior.venta.TotalVenta).toFixed(2)}</strong>
                   </div>
 
                   <div className="receipt-footer">
                     <p>Gracias por comprar en TecMart</p>
-                    <p>Conserve este comprobante</p>
+                    <p>Conserve este comprobante para cualquier aclaración</p>
                   </div>
                 </div>
 

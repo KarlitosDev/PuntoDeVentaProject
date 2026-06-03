@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 import api from '../api/api';
 
 type Producto = {
@@ -572,17 +573,84 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
 
     doc.save(nombreArchivo);
   };
+
+  const agregarEncabezadoReporte = (doc: jsPDF, titulo: string) => {
+    doc.setFillColor(32, 37, 31);
+    doc.rect(0, 0, 210, 28, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(18);
+    doc.setTextColor(255, 255, 255);
+    doc.text('TECMART', 20, 13);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text('Sistema de Punto de Venta', 20, 20);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(13);
+    doc.text(titulo, 190, 13, { align: 'right' });
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.text(`Generado por: ${username}`, 190, 20, { align: 'right' });
+
+    doc.setTextColor(31, 41, 55);
+  };
+
+  const agregarInfoReporte = (doc: jsPDF, titulo: string) => {
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.text(titulo, 20, 42);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(10);
+    doc.text(`Fecha de generacion: ${new Date().toLocaleString()}`, 20, 49);
+  };
+
+  const agregarPiePaginas = (doc: jsPDF) => {
+    const totalPaginas = doc.getNumberOfPages();
+
+    for (let i = 1; i <= totalPaginas; i++) {
+      doc.setPage(i);
+
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+
+      doc.text(
+        'Reporte generado automaticamente por TecMart',
+        20,
+        287
+      );
+
+      doc.text(
+        `Pagina ${i} de ${totalPaginas}`,
+        190,
+        287,
+        { align: 'right' }
+      );
+    }
+
+    doc.setTextColor(31, 41, 55);
+  };
+
+  const formatoMoneda = (valor: number) => {
+    return `$${Number(valor || 0).toFixed(2)}`;
+  };
+
+  const textoCorto = (texto: string | null | undefined, limite = 35) => {
+    if (!texto) return 'N/A';
+    return texto.length > limite ? `${texto.substring(0, limite)}...` : texto;
+  };  
   
   const descargarReporteSeccion = () => {
     const doc = new jsPDF();
 
-    let y = 18;
-
     const tituloReporte =
       activeTab === 'dashboard'
-        ? 'Reporte General del Sistema'
+        ? 'Reporte General'
         : activeTab === 'productos'
-        ? 'Reporte de Productos'
+        ? 'Reporte de Inventario'
         : activeTab === 'usuarios'
         ? 'Reporte de Usuarios'
         : activeTab === 'billeteras'
@@ -591,497 +659,309 @@ function AdminDashboard({ username, onLogout }: AdminDashboardProps) {
         ? 'Reporte de Ventas'
         : 'Reporte de Auditoria';
 
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text('TECMART', 105, y, { align: 'center' });
-
-    y += 8;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text('Sistema de Punto de Venta', 105, y, { align: 'center' });
-
-    y += 10;
-    doc.line(20, y, 190, y);
-
-    y += 10;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text(tituloReporte, 20, y);
-
-    y += 8;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(`Generado por: ${username}`, 20, y);
-
-    y += 6;
-    doc.text(`Fecha: ${new Date().toLocaleString()}`, 20, y);
-
-    y += 10;
-    doc.line(20, y, 190, y);
-    y += 10;
-
-    const revisarPagina = () => {
-      if (y > 265) {
-        doc.addPage();
-        y = 20;
-      }
-    };
+    agregarEncabezadoReporte(doc, tituloReporte);
+    agregarInfoReporte(doc, tituloReporte);
 
     if (activeTab === 'dashboard') {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text('Resumen del sistema', 20, y);
-      y += 8;
-
-      doc.setFont('helvetica', 'normal');
-      doc.text(`Ventas totales: $${totalVentas.toFixed(2)}`, 20, y);
-      y += 7;
-      doc.text(`Productos registrados: ${productos.length}`, 20, y);
-      y += 7;
-      doc.text(`Clientes registrados: ${clientes.length}`, 20, y);
-      y += 7;
-      doc.text(`Administradores registrados: ${admins.length}`, 20, y);
-      y += 7;
-      doc.text(`Billeteras activas: ${billeteras.length}`, 20, y);
-      y += 7;
-      doc.text(`Movimientos de billetera: ${movimientos.length}`, 20, y);
-      y += 7;
-      doc.text(`Productos con bajo stock: ${productosBajoStock.length}`, 20, y);
-
-      y += 12;
-      doc.setFont('helvetica', 'bold');
-      doc.text('Productos con bajo stock', 20, y);
-      y += 8;
-
-      doc.setFont('helvetica', 'normal');
-
-      productosBajoStock.forEach((producto) => {
-        revisarPagina();
-        doc.text(
-          `#${producto.IdProducto} - ${producto.Nombre} | Categoria: ${producto.Categoria} | Stock: ${producto.Stock}`,
-          20,
-          y
-        );
-        y += 7;
+      autoTable(doc, {
+        startY: 60,
+        head: [['Indicador', 'Valor']],
+        body: [
+          ['Ventas totales', formatoMoneda(totalVentas)],
+          ['Productos registrados', String(productos.length)],
+          ['Clientes registrados', String(clientes.length)],
+          ['Administradores registrados', String(admins.length)],
+          ['Billeteras activas', String(billeteras.length)],
+          ['Movimientos de billetera', String(movimientos.length)],
+          ['Productos con bajo stock', String(productosBajoStock.length)],
+        ],
+        theme: 'grid',
+        headStyles: { fillColor: [82, 97, 63] },
       });
 
-      if (productosBajoStock.length === 0) {
-        doc.text('No hay productos con bajo stock.', 20, y);
-      }
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 12,
+        head: [['ID', 'Producto', 'Categoria', 'Stock']],
+        body: productosBajoStock.map((producto) => [
+          producto.IdProducto,
+          producto.Nombre,
+          producto.Categoria,
+          producto.Stock,
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [82, 97, 63] },
+      });
     }
 
     if (activeTab === 'productos') {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.text('ID', 20, y);
-      doc.text('Producto', 35, y);
-      doc.text('Categoria', 95, y);
-      doc.text('Precio', 135, y);
-      doc.text('Stock', 165, y);
-      y += 7;
-
-      doc.setFont('helvetica', 'normal');
-
-      productosFiltradosAdmin.forEach((producto) => {
-        revisarPagina();
-
-        const nombre =
-          producto.Nombre.length > 28
-            ? `${producto.Nombre.substring(0, 28)}...`
-            : producto.Nombre;
-
-        doc.text(String(producto.IdProducto), 20, y);
-        doc.text(nombre, 35, y);
-        doc.text(producto.Categoria, 95, y);
-        doc.text(`$${Number(producto.Precio).toFixed(2)}`, 135, y);
-        doc.text(String(producto.Stock), 165, y);
-        y += 7;
+      autoTable(doc, {
+        startY: 60,
+        head: [['ID', 'Producto', 'Categoria', 'Precio', 'Stock', 'Icono']],
+        body: productosFiltradosAdmin.map((producto) => [
+          producto.IdProducto,
+          textoCorto(producto.Nombre, 30),
+          producto.Categoria,
+          formatoMoneda(producto.Precio),
+          producto.Stock,
+          producto.Icono || 'default.png',
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [82, 97, 63] },
+        styles: { fontSize: 8 },
       });
-
-      if (productosFiltradosAdmin.length === 0) {
-        doc.text('No hay productos para mostrar.', 20, y);
-      }
     }
 
     if (activeTab === 'usuarios') {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.text('ID', 20, y);
-      doc.text('Usuario', 40, y);
-      doc.text('Rol', 100, y);
-      doc.text('Creado', 130, y);
-      y += 7;
-
-      doc.setFont('helvetica', 'normal');
-
-      usuarios.forEach((usuario) => {
-        revisarPagina();
-
-        doc.text(String(usuario.IdUsuario), 20, y);
-        doc.text(usuario.Username, 40, y);
-        doc.text(usuario.Role, 100, y);
-        doc.text(new Date(usuario.Creado).toLocaleString(), 130, y);
-        y += 7;
+      autoTable(doc, {
+        startY: 60,
+        head: [['ID', 'Usuario', 'Rol', 'Creado']],
+        body: usuarios.map((usuario) => [
+          usuario.IdUsuario,
+          usuario.Username,
+          usuario.Role,
+          new Date(usuario.Creado).toLocaleString(),
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [82, 97, 63] },
+        styles: { fontSize: 8 },
       });
-
-      if (usuarios.length === 0) {
-        doc.text('No hay usuarios registrados.', 20, y);
-      }
     }
 
     if (activeTab === 'billeteras') {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(12);
-      doc.text('Saldos de clientes', 20, y);
-      y += 8;
-
-      doc.setFont('helvetica', 'normal');
-
-      billeterasFiltradas.forEach((billetera) => {
-        revisarPagina();
-
-        doc.text(
-          `Billetera #${billetera.IdBilletera} | Usuario: ${billetera.Username} | Saldo: $${Number(
-            billetera.Saldo
-          ).toFixed(2)}`,
-          20,
-          y
-        );
-        y += 7;
+      autoTable(doc, {
+        startY: 60,
+        head: [['ID Billetera', 'ID Usuario', 'Cliente', 'Rol', 'Saldo']],
+        body: billeterasFiltradas.map((billetera) => [
+          billetera.IdBilletera,
+          billetera.IdUsuario,
+          billetera.Username,
+          billetera.Role,
+          formatoMoneda(billetera.Saldo),
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [82, 97, 63] },
+        styles: { fontSize: 8 },
       });
 
-      y += 8;
-      revisarPagina();
-
-      doc.setFont('helvetica', 'bold');
-      doc.text('Movimientos de billetera', 20, y);
-      y += 8;
-
-      doc.setFont('helvetica', 'normal');
-
-      movimientosFiltrados.forEach((movimiento) => {
-        revisarPagina();
-
-        doc.text(
-          `#${movimiento.IdMovimiento} | ${movimiento.Username} | ${movimiento.TipoMovimiento} | $${Number(
-            movimiento.Monto
-          ).toFixed(2)} | Saldo nuevo: $${Number(movimiento.SaldoNuevo).toFixed(2)}`,
-          20,
-          y
-        );
-        y += 7;
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 12,
+        head: [['ID', 'Cliente', 'Tipo', 'Monto', 'Saldo Nuevo', 'Recibo']],
+        body: movimientosFiltrados.map((movimiento) => [
+          movimiento.IdMovimiento,
+          movimiento.Username,
+          movimiento.TipoMovimiento,
+          formatoMoneda(movimiento.Monto),
+          formatoMoneda(movimiento.SaldoNuevo),
+          movimiento.FolioRecibo || 'N/A',
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [82, 97, 63] },
+        styles: { fontSize: 8 },
       });
-
-      if (movimientosFiltrados.length === 0) {
-        doc.text('No hay movimientos de billetera para mostrar.', 20, y);
-      }
     }
 
     if (activeTab === 'ventas') {
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(11);
-      doc.text('Venta', 20, y);
-      doc.text('Recibo', 45, y);
-      doc.text('Cliente', 85, y);
-      doc.text('Total', 125, y);
-      doc.text('Estado', 155, y);
-      y += 7;
-
-      doc.setFont('helvetica', 'normal');
-
-      ventasFiltradas.forEach((venta) => {
-        revisarPagina();
-
-        doc.text(String(venta.IdVenta), 20, y);
-        doc.text(venta.FolioRecibo || 'N/A', 45, y);
-        doc.text(venta.Username, 85, y);
-        doc.text(`$${Number(venta.TotalVenta).toFixed(2)}`, 125, y);
-        doc.text(venta.EstadoPago, 155, y);
-        y += 7;
+      autoTable(doc, {
+        startY: 60,
+        head: [['Venta', 'Recibo', 'Cliente', 'Total', 'Metodo', 'Estado', 'Fecha']],
+        body: ventasFiltradas.map((venta) => [
+          venta.IdVenta,
+          venta.FolioRecibo || 'N/A',
+          venta.Username,
+          formatoMoneda(venta.TotalVenta),
+          venta.MetodoPago,
+          venta.EstadoPago,
+          new Date(venta.FechaVenta).toLocaleString(),
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [82, 97, 63] },
+        styles: { fontSize: 8 },
       });
-
-      if (ventasFiltradas.length === 0) {
-        doc.text('No hay ventas para mostrar.', 20, y);
-      }
     }
 
     if (activeTab === 'auditoria') {
       if (tipoAuditoria === 'productos') {
-        doc.setFont('helvetica', 'bold');
-        doc.text('Auditoria de productos', 20, y);
-        y += 8;
-
-        doc.setFont('helvetica', 'normal');
-
-        auditoriaProductosFiltrada.forEach((audit) => {
-          revisarPagina();
-
-          doc.text(
-            `#${audit.IdAuditoria} | ${audit.Operacion} | ${audit.NombreProducto || 'N/A'} | ${audit.Description || 'N/A'}`,
-            20,
-            y
-          );
-          y += 7;
+        autoTable(doc, {
+          startY: 60,
+          head: [['ID', 'Operacion', 'Producto', 'Stock Ant.', 'Stock Nuevo', 'Descripcion']],
+          body: auditoriaProductosFiltrada.map((audit) => [
+            audit.IdAuditoria,
+            audit.Operacion,
+            textoCorto(audit.NombreProducto, 28),
+            audit.StockViejo ?? 'N/A',
+            audit.StockNuevo ?? 'N/A',
+            textoCorto(audit.Description, 45),
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [82, 97, 63] },
+          styles: { fontSize: 8 },
         });
-
-        if (auditoriaProductosFiltrada.length === 0) {
-          doc.text('No hay auditoria de productos para mostrar.', 20, y);
-        }
       }
 
       if (tipoAuditoria === 'ventas') {
-        doc.setFont('helvetica', 'bold');
-        doc.text('Auditoria de ventas', 20, y);
-        y += 8;
-
-        doc.setFont('helvetica', 'normal');
-
-        auditoriaVentasFiltrada.forEach((audit) => {
-          revisarPagina();
-
-          doc.text(
-            `#${audit.IdAuditoria} | ${audit.Operacion} | Venta #${audit.IdVenta} | ${audit.FolioRecibo || 'N/A'} | $${Number(
-              audit.TotalVenta || 0
-            ).toFixed(2)}`,
-            20,
-            y
-          );
-          y += 7;
+        autoTable(doc, {
+          startY: 60,
+          head: [['ID', 'Operacion', 'Venta', 'Recibo', 'Total', 'Descripcion']],
+          body: auditoriaVentasFiltrada.map((audit) => [
+            audit.IdAuditoria,
+            audit.Operacion,
+            audit.IdVenta,
+            audit.FolioRecibo || 'N/A',
+            formatoMoneda(audit.TotalVenta),
+            textoCorto(audit.Description, 45),
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [82, 97, 63] },
+          styles: { fontSize: 8 },
         });
-
-        if (auditoriaVentasFiltrada.length === 0) {
-          doc.text('No hay auditoria de ventas para mostrar.', 20, y);
-        }
       }
 
       if (tipoAuditoria === 'usuarios') {
-        doc.setFont('helvetica', 'bold');
-        doc.text('Auditoria de usuarios', 20, y);
-        y += 8;
-
-        doc.setFont('helvetica', 'normal');
-
-        auditoriaUsuariosFiltrada.forEach((audit) => {
-          revisarPagina();
-
-          doc.text(
-            `#${audit.IdAuditoria} | ${audit.Operacion} | Usuario #${audit.IdUsuario} | ${audit.Description || 'N/A'}`,
-            20,
-            y
-          );
-          y += 7;
+        autoTable(doc, {
+          startY: 60,
+          head: [['ID', 'Operacion', 'Usuario', 'Rol Ant.', 'Rol Nuevo', 'Descripcion']],
+          body: auditoriaUsuariosFiltrada.map((audit) => [
+            audit.IdAuditoria,
+            audit.Operacion,
+            audit.IdUsuario,
+            audit.RoleViejo || 'N/A',
+            audit.RoleNuevo || 'N/A',
+            textoCorto(audit.Description, 45),
+          ]),
+          theme: 'grid',
+          headStyles: { fillColor: [82, 97, 63] },
+          styles: { fontSize: 8 },
         });
-
-        if (auditoriaUsuariosFiltrada.length === 0) {
-          doc.text('No hay auditoria de usuarios para mostrar.', 20, y);
-        }
       }
     }
 
-      const nombreArchivo = `${tituloReporte.replaceAll(' ', '_')}_${new Date()
-        .toISOString()
-        .slice(0, 10)}.pdf`;
+    agregarPiePaginas(doc);
 
-      abrirPDF(doc, nombreArchivo);
-    };
-    
+    const nombreArchivo = `${tituloReporte.replaceAll(' ', '_')}_${new Date()
+      .toISOString()
+      .slice(0, 10)}.pdf`;
+
+    abrirPDF(doc, nombreArchivo);
+  };
+
   const descargarAuditoriaCompletaPDF = () => {
     const doc = new jsPDF();
 
-    let y = 18;
+    agregarEncabezadoReporte(doc, 'Auditoria Completa');
+    agregarInfoReporte(doc, 'Reporte Completo de Auditoria');
 
-    const revisarPagina = () => {
-      if (y > 265) {
-        doc.addPage();
-        y = 20;
-      }
-    };
-
-    const agregarEncabezadoSeccion = (titulo: string) => {
-      revisarPagina();
-
-      doc.setFont('helvetica', 'bold');
-      doc.setFontSize(13);
-      doc.text(titulo, 20, y);
-
-      y += 8;
-
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(10);
-    };
+    let y = 62;
 
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text('TECMART', 105, y, { align: 'center' });
+    doc.setFontSize(12);
+    doc.text('Auditoria de Productos', 20, y);
 
-    y += 8;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text('Sistema de Punto de Venta', 105, y, { align: 'center' });
+    autoTable(doc, {
+      startY: y + 6,
+      head: [['ID', 'Operacion', 'Producto', 'Stock Ant.', 'Stock Nuevo', 'Descripcion']],
+      body: auditoriaProductos.map((audit) => [
+        audit.IdAuditoria,
+        audit.Operacion,
+        textoCorto(audit.NombreProducto, 28),
+        audit.StockViejo ?? 'N/A',
+        audit.StockNuevo ?? 'N/A',
+        textoCorto(audit.Description, 45),
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [82, 97, 63] },
+      styles: { fontSize: 8 },
+    });
 
-    y += 10;
-    doc.line(20, y, 190, y);
+    y = (doc as any).lastAutoTable.finalY + 14;
 
-    y += 10;
+    if (y > 250) {
+      doc.addPage();
+      y = 30;
+    }
+
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.text('Reporte Completo de Auditoria', 20, y);
+    doc.setFontSize(12);
+    doc.text('Auditoria de Ventas', 20, y);
 
-    y += 8;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(10);
-    doc.text(`Generado por: ${username}`, 20, y);
+    autoTable(doc, {
+      startY: y + 6,
+      head: [['ID', 'Operacion', 'Venta', 'Recibo', 'Total', 'Descripcion']],
+      body: auditoriaVentas.map((audit) => [
+        audit.IdAuditoria,
+        audit.Operacion,
+        audit.IdVenta,
+        audit.FolioRecibo || 'N/A',
+        formatoMoneda(audit.TotalVenta),
+        textoCorto(audit.Description, 45),
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [82, 97, 63] },
+      styles: { fontSize: 8 },
+    });
 
-    y += 6;
-    doc.text(`Fecha: ${new Date().toLocaleString()}`, 20, y);
+    y = (doc as any).lastAutoTable.finalY + 14;
 
-    y += 10;
-    doc.line(20, y, 190, y);
-    y += 10;
-
-    agregarEncabezadoSeccion('Auditoria de productos');
-
-    if (auditoriaProductos.length === 0) {
-      doc.text('No hay registros de auditoria de productos.', 20, y);
-      y += 8;
-    } else {
-      auditoriaProductos.forEach((audit) => {
-        revisarPagina();
-
-        const descripcion =
-          audit.Description && audit.Description.length > 70
-            ? `${audit.Description.substring(0, 70)}...`
-            : audit.Description || 'N/A';
-
-        const producto =
-          audit.NombreProducto && audit.NombreProducto.length > 25
-            ? `${audit.NombreProducto.substring(0, 25)}...`
-            : audit.NombreProducto || 'N/A';
-
-        doc.text(
-          `#${audit.IdAuditoria} | ${audit.Operacion} | ${producto} | ${descripcion}`,
-          20,
-          y
-        );
-
-        y += 6;
-        revisarPagina();
-
-        doc.setFontSize(9);
-        doc.text(
-          `Precio: ${audit.PrecioViejo ?? 'N/A'} -> ${audit.PrecioNuevo ?? 'N/A'} | Stock: ${
-            audit.StockViejo ?? 'N/A'
-          } -> ${audit.StockNuevo ?? 'N/A'} | Usuario SQL: ${audit.CambiadoPor || 'N/A'}`,
-          24,
-          y
-        );
-        doc.setFontSize(10);
-
-        y += 8;
-      });
+    if (y > 250) {
+      doc.addPage();
+      y = 30;
     }
 
-    y += 8;
-    agregarEncabezadoSeccion('Auditoria de ventas');
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(12);
+    doc.text('Auditoria de Usuarios', 20, y);
 
-    if (auditoriaVentas.length === 0) {
-      doc.text('No hay registros de auditoria de ventas.', 20, y);
-      y += 8;
-    } else {
-      auditoriaVentas.forEach((audit) => {
-        revisarPagina();
+    autoTable(doc, {
+      startY: y + 6,
+      head: [['ID', 'Operacion', 'Usuario', 'Usuario Ant.', 'Usuario Nuevo', 'Descripcion']],
+      body: auditoriaUsuarios.map((audit) => [
+        audit.IdAuditoria,
+        audit.Operacion,
+        audit.IdUsuario,
+        audit.UsernameViejo || 'N/A',
+        audit.UsernameNuevo || 'N/A',
+        textoCorto(audit.Description, 45),
+      ]),
+      theme: 'grid',
+      headStyles: { fillColor: [82, 97, 63] },
+      styles: { fontSize: 8 },
+    });
 
-        const descripcion =
-          audit.Description && audit.Description.length > 70
-            ? `${audit.Description.substring(0, 70)}...`
-            : audit.Description || 'N/A';
+    y = (doc as any).lastAutoTable.finalY + 14;
 
-        doc.text(
-          `#${audit.IdAuditoria} | ${audit.Operacion} | Venta #${audit.IdVenta} | Recibo: ${
-            audit.FolioRecibo || 'N/A'
-          }`,
-          20,
-          y
-        );
-
-        y += 6;
-        revisarPagina();
-
-        doc.setFontSize(9);
-        doc.text(
-          `Usuario: ${audit.IdUsuario} | Total: $${Number(audit.TotalVenta || 0).toFixed(
-            2
-          )} | Metodo: ${audit.MetodoPago || 'N/A'} | ${descripcion}`,
-          24,
-          y
-        );
-        doc.setFontSize(10);
-
-        y += 8;
-      });
-    }
-
-    y += 8;
-    agregarEncabezadoSeccion('Auditoria de usuarios');
-
-    if (auditoriaUsuarios.length === 0) {
-      doc.text('No hay registros de auditoria de usuarios.', 20, y);
-      y += 8;
-    } else {
-      auditoriaUsuarios.forEach((audit) => {
-        revisarPagina();
-
-        const descripcion =
-          audit.Description && audit.Description.length > 70
-            ? `${audit.Description.substring(0, 70)}...`
-            : audit.Description || 'N/A';
-
-        doc.text(
-          `#${audit.IdAuditoria} | ${audit.Operacion} | Usuario #${audit.IdUsuario}`,
-          20,
-          y
-        );
-
-        y += 6;
-        revisarPagina();
-
-        doc.setFontSize(9);
-        doc.text(
-          `Username: ${audit.UsernameViejo || 'N/A'} -> ${
-            audit.UsernameNuevo || 'N/A'
-          } | Role: ${audit.RoleViejo || 'N/A'} -> ${
-            audit.RoleNuevo || 'N/A'
-          } | Password cambiado: ${audit.PasswordCambiado ? 'Si' : 'No'}`,
-          24,
-          y
-        );
-
-        y += 6;
-        revisarPagina();
-
-        doc.text(`Descripcion: ${descripcion}`, 24, y);
-        doc.setFontSize(10);
-
-        y += 8;
-      });
+    if (y > 240) {
+      doc.addPage();
+      y = 30;
     }
 
     const totalRegistros =
       auditoriaProductos.length + auditoriaVentas.length + auditoriaUsuarios.length;
 
-    y += 10;
-    revisarPagina();
-
-    doc.line(20, y, 190, y);
-    y += 8;
-
     doc.setFont('helvetica', 'bold');
-    doc.text(`Total de registros de auditoria: ${totalRegistros}`, 20, y);
+    doc.setFontSize(12);
+    doc.text('Resumen de Auditoria', 20, y);
 
-    const nombreArchivo = `Auditoria_Completa_${new Date().toISOString().slice(0, 10)}.pdf`;
+    autoTable(doc, {
+      startY: y + 6,
+      head: [['Seccion', 'Total']],
+      body: [
+        ['Auditoria de productos', auditoriaProductos.length],
+        ['Auditoria de ventas', auditoriaVentas.length],
+        ['Auditoria de usuarios', auditoriaUsuarios.length],
+        ['Total de registros', totalRegistros],
+      ],
+      theme: 'grid',
+      headStyles: { fillColor: [82, 97, 63] },
+      styles: { fontSize: 9 },
+    });
+
+    agregarPiePaginas(doc);
+
+    const nombreArchivo = `Auditoria_Completa_${new Date()
+      .toISOString()
+      .slice(0, 10)}.pdf`;
 
     abrirPDF(doc, nombreArchivo);
-  };    
+  };
 
   return (
     <div className="admin-shell">
